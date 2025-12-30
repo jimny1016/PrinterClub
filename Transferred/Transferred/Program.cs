@@ -15,7 +15,7 @@ internal class Program
         try
         {
             // args:
-            // [0] dataRoot (folder contains company.txt, Rcompany.txt, com/)
+            // [0] dataRoot (folder contains sourceData/company.txt, sourceData/Rcompany.txt, sourceData/com/)
             // [1] outputDbPath (default: output.db)
             var dataRoot = args.Length >= 1 ? args[0] : FindProjectRoot();
             var outputDb = args.Length >= 2 ? args[1] : Path.Combine(dataRoot, "output.db");
@@ -43,7 +43,7 @@ internal class Program
             using var conn = new SqliteConnection($"Data Source={outputDb}");
             conn.Open();
 
-            CreateTables(conn);
+            EnsureSchemaAndMigrateIfNeeded(conn);
 
             using var tx = conn.BeginTransaction();
 
@@ -67,57 +67,433 @@ internal class Program
 
     static string FindProjectRoot()
     {
-        // 從執行檔所在資料夾開始往上找 *.csproj
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
 
         while (dir != null)
         {
-            var csproj = dir.GetFiles("*.csproj", SearchOption.TopDirectoryOnly)
-                            .FirstOrDefault();
-            if (csproj != null)
-            {
-                return dir.FullName;
-            }
+            var csproj = dir.GetFiles("*.csproj", SearchOption.TopDirectoryOnly).FirstOrDefault();
+            if (csproj != null) return dir.FullName;
             dir = dir.Parent;
         }
 
-        // 找不到就退回目前工作目錄（至少不會死）
         return Directory.GetCurrentDirectory();
     }
-    static void CreateTables(SqliteConnection conn)
+
+    // =========================
+    // Schema / Migration
+    // =========================
+
+    static void EnsureSchemaAndMigrateIfNeeded(SqliteConnection conn)
+    {
+        // companies:
+        // - v1: number + f01..f42 + equipment_text + source_line + updated_at
+        // - v2: number + meaningful columns + equipment_text + source_line + updated_at
+        if (!TableExists(conn, "companies"))
+        {
+            CreateCompaniesV2(conn);
+        }
+        else
+        {
+            var cols = GetTableColumns(conn, "companies");
+            bool isV2 = cols.Contains("cname");
+            bool isV1 = cols.Contains("f01");
+
+            if (isV1 && !isV2)
+            {
+                Console.WriteLine("偵測到 companies 為第一階段欄位（f01..f42），開始 migration 到第二階段命名...");
+                MigrateCompaniesV1ToV2(conn);
+                Console.WriteLine("companies migration 完成");
+            }
+            else if (!isV2)
+            {
+                // 存在但又不像 v1/v2：保守處理
+                Console.WriteLine("警告：companies 表已存在，但欄位不符合預期（既不是 v1 也不是 v2）。請檢查 DB。");
+            }
+        }
+
+        // rcompanies:
+        if (!TableExists(conn, "rcompanies"))
+        {
+            CreateRCompaniesV2(conn);
+        }
+        else
+        {
+            var cols = GetTableColumns(conn, "rcompanies");
+            bool isV2 = cols.Contains("name") && cols.Contains("zip_code");
+            bool isV1 = cols.Contains("f01");
+
+            if (isV1 && !isV2)
+            {
+                Console.WriteLine("偵測到 rcompanies 為第一階段欄位（f01..f08），開始 migration 到第二階段命名...");
+                MigrateRCompaniesV1ToV2(conn);
+                Console.WriteLine("rcompanies migration 完成");
+            }
+            else if (!isV2)
+            {
+                Console.WriteLine("警告：rcompanies 表已存在，但欄位不符合預期（既不是 v1 也不是 v2）。請檢查 DB。");
+            }
+        }
+
+        CreateIndexes(conn);
+    }
+
+    static void CreateCompaniesV2(SqliteConnection conn)
     {
         using var cmd = conn.CreateCommand();
-
-        // companies: number + 42 fields + equipment_text + source_line
-        var companyFields = string.Join(",\n", Enumerable.Range(1, 42).Select(i => $"  f{i:00} TEXT"));
-        cmd.CommandText = $@"
+        cmd.CommandText = @"
 CREATE TABLE IF NOT EXISTS companies (
   number TEXT PRIMARY KEY,
-{companyFields},
+
+  cname TEXT,
+  ename TEXT,
+  c_address TEXT,
+  f_address TEXT,
+  tax_id TEXT,
+  money TEXT,
+  area TEXT,
+
+  c1 TEXT,
+  c2 TEXT,
+  c3 TEXT,
+
+  f1 TEXT,
+  f2 TEXT,
+  f3 TEXT,
+
+  c_date TEXT,
+  join_date TEXT,
+  re_date TEXT,
+
+  c_tel TEXT,
+  c_fax TEXT,
+  f_tel TEXT,
+  f_fax TEXT,
+
+  chief TEXT,
+  title TEXT,
+  pid TEXT,
+  sex TEXT,
+  p_address TEXT,
+
+  ca TEXT,
+  cn TEXT,
+  c_area TEXT,
+
+  v_date TEXT,
+  v_date2 TEXT,
+
+  chairman TEXT,
+  chairman_e TEXT,
+  gm TEXT,
+  gm_e TEXT,
+
+  main_product TEXT,
+  main_product_e TEXT,
+
+  email TEXT,
+  http TEXT,
+  address_e TEXT,
+
+  classify TEXT,
+  area_class TEXT,
+
   equipment_text TEXT,
   source_line TEXT,
   updated_at TEXT
 );
-
-CREATE TABLE IF NOT EXISTS rcompanies (
-  code TEXT PRIMARY KEY,
-  f01 TEXT,
-  f02 TEXT,
-  f03 TEXT,
-  f04 TEXT,
-  f05 TEXT,
-  f06 TEXT,
-  f07 TEXT,
-  f08 TEXT,
-  source_line TEXT,
-  updated_at TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_companies_f02 ON companies(f02);
-CREATE INDEX IF NOT EXISTS idx_companies_f08 ON companies(f08);
 ";
         cmd.ExecuteNonQuery();
     }
+
+    static void CreateRCompaniesV2(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+CREATE TABLE IF NOT EXISTS rcompanies (
+  code TEXT PRIMARY KEY,
+  name TEXT,
+  chief TEXT,
+  newsletter_copies TEXT,
+  address TEXT,
+  comment TEXT,
+  zip_code TEXT,
+  source_line TEXT,
+  updated_at TEXT
+);
+";
+        cmd.ExecuteNonQuery();
+    }
+
+    static void CreateIndexes(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+CREATE INDEX IF NOT EXISTS idx_companies_cname ON companies(cname);
+CREATE INDEX IF NOT EXISTS idx_companies_area ON companies(area);
+CREATE INDEX IF NOT EXISTS idx_companies_classify ON companies(classify);
+CREATE INDEX IF NOT EXISTS idx_companies_area_class ON companies(area_class);
+
+CREATE INDEX IF NOT EXISTS idx_rcompanies_name ON rcompanies(name);
+";
+        cmd.ExecuteNonQuery();
+    }
+
+    static void MigrateCompaniesV1ToV2(SqliteConnection conn)
+    {
+        using var tx = conn.BeginTransaction();
+
+        // 1) create new table
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+CREATE TABLE IF NOT EXISTS companies_new (
+  number TEXT PRIMARY KEY,
+
+  cname TEXT,
+  ename TEXT,
+  c_address TEXT,
+  f_address TEXT,
+  tax_id TEXT,
+  money TEXT,
+  area TEXT,
+
+  c1 TEXT,
+  c2 TEXT,
+  c3 TEXT,
+
+  f1 TEXT,
+  f2 TEXT,
+  f3 TEXT,
+
+  c_date TEXT,
+  join_date TEXT,
+  re_date TEXT,
+
+  c_tel TEXT,
+  c_fax TEXT,
+  f_tel TEXT,
+  f_fax TEXT,
+
+  chief TEXT,
+  title TEXT,
+  pid TEXT,
+  sex TEXT,
+  p_address TEXT,
+
+  ca TEXT,
+  cn TEXT,
+  c_area TEXT,
+
+  v_date TEXT,
+  v_date2 TEXT,
+
+  chairman TEXT,
+  chairman_e TEXT,
+  gm TEXT,
+  gm_e TEXT,
+
+  main_product TEXT,
+  main_product_e TEXT,
+
+  email TEXT,
+  http TEXT,
+  address_e TEXT,
+
+  classify TEXT,
+  area_class TEXT,
+
+  equipment_text TEXT,
+  source_line TEXT,
+  updated_at TEXT
+);
+";
+            cmd.ExecuteNonQuery();
+        }
+
+        // 2) copy data (v1: number + f01..f42)
+        // 注意：v1 的 f01 其實就是 number 再存一次，所以用 COALESCE(number, f01)
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+INSERT INTO companies_new (
+  number,
+  cname, ename, c_address, f_address, tax_id, money, area,
+  c1, c2, c3,
+  f1, f2, f3,
+  c_date, join_date, re_date,
+  c_tel, c_fax, f_tel, f_fax,
+  chief, title, pid, sex, p_address,
+  ca, cn, c_area,
+  v_date, v_date2,
+  chairman, chairman_e, gm, gm_e,
+  main_product, main_product_e,
+  email, http, address_e,
+  classify, area_class,
+  equipment_text, source_line, updated_at
+)
+SELECT
+  COALESCE(number, f01) AS number,
+
+  f02 AS cname,
+  f03 AS ename,
+  f04 AS c_address,
+  f05 AS f_address,
+  f06 AS tax_id,
+  f07 AS money,
+  f08 AS area,
+
+  f09 AS c1,
+  f10 AS c2,
+  f11 AS c3,
+
+  f12 AS f1,
+  f13 AS f2,
+  f14 AS f3,
+
+  f15 AS c_date,
+  f16 AS join_date,
+  f17 AS re_date,
+
+  f18 AS c_tel,
+  f19 AS c_fax,
+  f20 AS f_tel,
+  f21 AS f_fax,
+
+  f22 AS chief,
+  f23 AS title,
+  f24 AS pid,
+  f25 AS sex,
+  f26 AS p_address,
+
+  f27 AS ca,
+  f28 AS cn,
+  f29 AS c_area,
+
+  f30 AS v_date,
+  f31 AS v_date2,
+
+  f32 AS chairman,
+  f33 AS chairman_e,
+  f34 AS gm,
+  f35 AS gm_e,
+
+  f36 AS main_product,
+  f37 AS main_product_e,
+
+  f38 AS email,
+  f39 AS http,
+  f40 AS address_e,
+
+  f41 AS classify,
+  f42 AS area_class,
+
+  equipment_text,
+  source_line,
+  updated_at
+FROM companies;
+";
+            cmd.ExecuteNonQuery();
+        }
+
+        // 3) drop old, rename
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+DROP TABLE companies;
+ALTER TABLE companies_new RENAME TO companies;
+";
+            cmd.ExecuteNonQuery();
+        }
+
+        tx.Commit();
+    }
+
+    static void MigrateRCompaniesV1ToV2(SqliteConnection conn)
+    {
+        using var tx = conn.BeginTransaction();
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+CREATE TABLE IF NOT EXISTS rcompanies_new (
+  code TEXT PRIMARY KEY,
+  name TEXT,
+  chief TEXT,
+  newsletter_copies TEXT,
+  address TEXT,
+  comment TEXT,
+  zip_code TEXT,
+  source_line TEXT,
+  updated_at TEXT
+);
+";
+            cmd.ExecuteNonQuery();
+        }
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            // v1 的 f01..f08：實際上舊 Java 只用到 0..6，最後常是空
+            cmd.CommandText = @"
+INSERT INTO rcompanies_new (code, name, chief, newsletter_copies, address, comment, zip_code, source_line, updated_at)
+SELECT
+  code,
+  f02 AS name,
+  f03 AS chief,
+  f04 AS newsletter_copies,
+  f05 AS address,
+  f06 AS comment,
+  f07 AS zip_code,
+  source_line,
+  updated_at
+FROM rcompanies;
+";
+            cmd.ExecuteNonQuery();
+        }
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+DROP TABLE rcompanies;
+ALTER TABLE rcompanies_new RENAME TO rcompanies;
+";
+            cmd.ExecuteNonQuery();
+        }
+
+        tx.Commit();
+    }
+
+    static bool TableExists(SqliteConnection conn, string tableName)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=@name LIMIT 1;";
+        cmd.Parameters.AddWithValue("@name", tableName);
+        var result = cmd.ExecuteScalar();
+        return result != null && result != DBNull.Value;
+    }
+
+    static HashSet<string> GetTableColumns(SqliteConnection conn, string tableName)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"PRAGMA table_info({tableName});";
+        using var reader = cmd.ExecuteReader();
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (reader.Read())
+        {
+            var colName = reader.GetString(reader.GetOrdinal("name"));
+            set.Add(colName);
+        }
+        return set;
+    }
+
+    // =========================
+    // Import (v2 columns)
+    // =========================
 
     static int ImportCompanies(SqliteConnection conn, SqliteTransaction tx, string companyPath, string comDir, Encoding big5)
     {
@@ -126,12 +502,25 @@ CREATE INDEX IF NOT EXISTS idx_companies_f08 ON companies(f08);
         using var upsert = conn.CreateCommand();
         upsert.Transaction = tx;
 
-        // Prepare UPSERT SQL
-        var columns = new List<string> { "number" };
-        columns.AddRange(Enumerable.Range(1, 42).Select(i => $"f{i:00}"));
-        columns.AddRange(new[] { "equipment_text", "source_line", "updated_at" });
+        var columns = new[]
+        {
+            "number",
+            "cname","ename","c_address","f_address","tax_id","money","area",
+            "c1","c2","c3",
+            "f1","f2","f3",
+            "c_date","join_date","re_date",
+            "c_tel","c_fax","f_tel","f_fax",
+            "chief","title","pid","sex","p_address",
+            "ca","cn","c_area",
+            "v_date","v_date2",
+            "chairman","chairman_e","gm","gm_e",
+            "main_product","main_product_e",
+            "email","http","address_e",
+            "classify","area_class",
+            "equipment_text","source_line","updated_at"
+        };
 
-        var paramNames = columns.Select(c => $"@{c}").ToList();
+        var paramNames = columns.Select(c => $"@{c}").ToArray();
 
         var updateSet = string.Join(", ", columns
             .Where(c => c != "number")
@@ -143,7 +532,6 @@ VALUES ({string.Join(",", paramNames)})
 ON CONFLICT(number) DO UPDATE SET {updateSet};
 ";
 
-        // Pre-create parameters
         foreach (var c in columns)
             upsert.Parameters.Add(new SqliteParameter($"@{c}", ""));
 
@@ -166,17 +554,66 @@ ON CONFLICT(number) DO UPDATE SET {updateSet};
                 continue;
             }
 
-            var equipment = ReadEquipmentText(comDir, number, big5);
+            var equipment = ReadEquipmentText(comDir, number, big5) ?? "";
 
+            // 依照 Java comPool 的 index 對應
+            // 0..41 對應 number..areaClass
             upsert.Parameters["@number"].Value = number;
 
-            for (int i = 1; i <= 42; i++)
-            {
-                var v = parts[i - 1];
-                upsert.Parameters[$"@f{i:00}"].Value = v;
-            }
+            upsert.Parameters["@cname"].Value = parts[1];
+            upsert.Parameters["@ename"].Value = parts[2];
+            upsert.Parameters["@c_address"].Value = parts[3];
+            upsert.Parameters["@f_address"].Value = parts[4];
+            upsert.Parameters["@tax_id"].Value = parts[5];
+            upsert.Parameters["@money"].Value = parts[6];
+            upsert.Parameters["@area"].Value = parts[7];
 
-            upsert.Parameters["@equipment_text"].Value = equipment ?? "";
+            upsert.Parameters["@c1"].Value = parts[8];
+            upsert.Parameters["@c2"].Value = parts[9];
+            upsert.Parameters["@c3"].Value = parts[10];
+
+            upsert.Parameters["@f1"].Value = parts[11];
+            upsert.Parameters["@f2"].Value = parts[12];
+            upsert.Parameters["@f3"].Value = parts[13];
+
+            upsert.Parameters["@c_date"].Value = parts[14];
+            upsert.Parameters["@join_date"].Value = parts[15];
+            upsert.Parameters["@re_date"].Value = parts[16];
+
+            upsert.Parameters["@c_tel"].Value = parts[17];
+            upsert.Parameters["@c_fax"].Value = parts[18];
+            upsert.Parameters["@f_tel"].Value = parts[19];
+            upsert.Parameters["@f_fax"].Value = parts[20];
+
+            upsert.Parameters["@chief"].Value = parts[21];
+            upsert.Parameters["@title"].Value = parts[22];
+            upsert.Parameters["@pid"].Value = parts[23];
+            upsert.Parameters["@sex"].Value = parts[24];
+            upsert.Parameters["@p_address"].Value = parts[25];
+
+            upsert.Parameters["@ca"].Value = parts[26];
+            upsert.Parameters["@cn"].Value = parts[27];
+            upsert.Parameters["@c_area"].Value = parts[28];
+
+            upsert.Parameters["@v_date"].Value = parts[29];
+            upsert.Parameters["@v_date2"].Value = parts[30];
+
+            upsert.Parameters["@chairman"].Value = parts[31];
+            upsert.Parameters["@chairman_e"].Value = parts[32];
+            upsert.Parameters["@gm"].Value = parts[33];
+            upsert.Parameters["@gm_e"].Value = parts[34];
+
+            upsert.Parameters["@main_product"].Value = parts[35];
+            upsert.Parameters["@main_product_e"].Value = parts[36];
+
+            upsert.Parameters["@email"].Value = parts[37];
+            upsert.Parameters["@http"].Value = parts[38];
+            upsert.Parameters["@address_e"].Value = parts[39];
+
+            upsert.Parameters["@classify"].Value = parts[40];
+            upsert.Parameters["@area_class"].Value = parts[41];
+
+            upsert.Parameters["@equipment_text"].Value = equipment;
             upsert.Parameters["@source_line"].Value = raw;
             upsert.Parameters["@updated_at"].Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
@@ -198,24 +635,26 @@ ON CONFLICT(number) DO UPDATE SET {updateSet};
         upsert.Transaction = tx;
 
         upsert.CommandText = @"
-INSERT INTO rcompanies (code,f01,f02,f03,f04,f05,f06,f07,f08,source_line,updated_at)
-VALUES (@code,@f01,@f02,@f03,@f04,@f05,@f06,@f07,@f08,@source_line,@updated_at)
+INSERT INTO rcompanies (code, name, chief, newsletter_copies, address, comment, zip_code, source_line, updated_at)
+VALUES (@code,@name,@chief,@newsletter_copies,@address,@comment,@zip_code,@source_line,@updated_at)
 ON CONFLICT(code) DO UPDATE SET
-f01=excluded.f01,
-f02=excluded.f02,
-f03=excluded.f03,
-f04=excluded.f04,
-f05=excluded.f05,
-f06=excluded.f06,
-f07=excluded.f07,
-f08=excluded.f08,
+name=excluded.name,
+chief=excluded.chief,
+newsletter_copies=excluded.newsletter_copies,
+address=excluded.address,
+comment=excluded.comment,
+zip_code=excluded.zip_code,
 source_line=excluded.source_line,
 updated_at=excluded.updated_at;
 ";
 
         upsert.Parameters.Add(new SqliteParameter("@code", ""));
-        for (int i = 1; i <= 8; i++)
-            upsert.Parameters.Add(new SqliteParameter($"@f{i:00}", ""));
+        upsert.Parameters.Add(new SqliteParameter("@name", ""));
+        upsert.Parameters.Add(new SqliteParameter("@chief", ""));
+        upsert.Parameters.Add(new SqliteParameter("@newsletter_copies", ""));
+        upsert.Parameters.Add(new SqliteParameter("@address", ""));
+        upsert.Parameters.Add(new SqliteParameter("@comment", ""));
+        upsert.Parameters.Add(new SqliteParameter("@zip_code", ""));
         upsert.Parameters.Add(new SqliteParameter("@source_line", ""));
         upsert.Parameters.Add(new SqliteParameter("@updated_at", ""));
 
@@ -225,9 +664,11 @@ updated_at=excluded.updated_at;
             if (string.IsNullOrWhiteSpace(raw)) continue;
 
             var parts = raw.Split('|');
-            if (parts.Length != 8)
+
+            // 舊檔通常是 7 欄 + 最後一個空欄（尾巴多一個 |），所以可能是 7 或 8
+            if (parts.Length < 7)
             {
-                Console.WriteLine($"[WARN] Rcompany.txt 欄位數不是 8：{parts.Length}，line={raw}");
+                Console.WriteLine($"[WARN] Rcompany.txt 欄位數不足（至少要 7）：{parts.Length}，line={raw}");
                 continue;
             }
 
@@ -236,9 +677,12 @@ updated_at=excluded.updated_at;
                 continue;
 
             upsert.Parameters["@code"].Value = code;
-            for (int i = 1; i <= 8; i++)
-                upsert.Parameters[$"@f{i:00}"].Value = parts[i - 1];
-
+            upsert.Parameters["@name"].Value = parts.ElementAtOrDefault(1) ?? "";
+            upsert.Parameters["@chief"].Value = parts.ElementAtOrDefault(2) ?? "";
+            upsert.Parameters["@newsletter_copies"].Value = parts.ElementAtOrDefault(3) ?? "";
+            upsert.Parameters["@address"].Value = parts.ElementAtOrDefault(4) ?? "";
+            upsert.Parameters["@comment"].Value = parts.ElementAtOrDefault(5) ?? "";
+            upsert.Parameters["@zip_code"].Value = parts.ElementAtOrDefault(6) ?? "";
             upsert.Parameters["@source_line"].Value = raw;
             upsert.Parameters["@updated_at"].Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
@@ -248,6 +692,10 @@ updated_at=excluded.updated_at;
 
         return count;
     }
+
+    // =========================
+    // IO helpers
+    // =========================
 
     static IEnumerable<string> ReadLines(string path, Encoding enc)
     {
@@ -268,11 +716,9 @@ updated_at=excluded.updated_at;
         var path = Path.Combine(comDir, $"{number}.txt");
         if (!File.Exists(path)) return null;
 
-        // com/*.txt 可能有 \0 padding：要用 binary 讀再 trim
         byte[] bytes = File.ReadAllBytes(path);
         if (bytes.Length == 0) return "";
 
-        // trim end null bytes
         int end = bytes.Length;
         while (end > 0 && bytes[end - 1] == 0x00) end--;
 
@@ -281,7 +727,6 @@ updated_at=excluded.updated_at;
         var trimmed = new byte[end];
         Buffer.BlockCopy(bytes, 0, trimmed, 0, end);
 
-        // 有些檔案可能是純 0（或含很多 0）
         var s = big5.GetString(trimmed);
         s = s.Replace("\0", "").Trim();
         return s;
