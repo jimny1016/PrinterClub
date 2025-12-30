@@ -85,33 +85,41 @@ internal class Program
 
     static void EnsureSchemaAndMigrateIfNeeded(SqliteConnection conn)
     {
-        // companies:
-        // - v1: number + f01..f42 + equipment_text + source_line + updated_at
-        // - v2: number + meaningful columns + equipment_text + source_line + updated_at
+        // --- companies ---
         if (!TableExists(conn, "companies"))
         {
-            CreateCompaniesV2(conn);
+            CreateCompaniesV3(conn);
         }
         else
         {
             var cols = GetTableColumns(conn, "companies");
-            bool isV2 = cols.Contains("cname");
-            bool isV1 = cols.Contains("f01");
 
-            if (isV1 && !isV2)
+            bool isV1 = cols.Contains("f01"); // number + f01..f42
+            bool isV2 = cols.Contains("cname") && cols.Contains("c1") && cols.Contains("f1"); // v2 (still c1/c2/c3,f1/f2/f3)
+            bool isV3 = cols.Contains("company_reg_date") && cols.Contains("factory_reg_no") && cols.Contains("contact_person") && cols.Contains("extension");
+
+            if (isV1 && !isV2 && !isV3)
             {
-                Console.WriteLine("偵測到 companies 為第一階段欄位（f01..f42），開始 migration 到第二階段命名...");
+                Console.WriteLine("偵測到 companies 為 v1（f01..f42），開始 migration 到 v2...");
                 MigrateCompaniesV1ToV2(conn);
-                Console.WriteLine("companies migration 完成");
+                Console.WriteLine("companies v1->v2 完成");
+                cols = GetTableColumns(conn, "companies");
+                isV2 = cols.Contains("cname") && cols.Contains("c1") && cols.Contains("f1");
             }
-            else if (!isV2)
+
+            if (isV2 && !isV3)
             {
-                // 存在但又不像 v1/v2：保守處理
-                Console.WriteLine("警告：companies 表已存在，但欄位不符合預期（既不是 v1 也不是 v2）。請檢查 DB。");
+                Console.WriteLine("偵測到 companies 為 v2（c1/c2/c3,f1/f2/f3），開始 migration 到 v3（登記欄位命名 + 聯絡人/分機）...");
+                MigrateCompaniesV2ToV3(conn);
+                Console.WriteLine("companies v2->v3 完成");
+            }
+            else if (!isV2 && !isV3)
+            {
+                Console.WriteLine("警告：companies 表已存在，但欄位不符合預期（非 v1/v2/v3）。請檢查 DB。");
             }
         }
 
-        // rcompanies:
+        // --- rcompanies ---
         if (!TableExists(conn, "rcompanies"))
         {
             CreateRCompaniesV2(conn);
@@ -119,25 +127,25 @@ internal class Program
         else
         {
             var cols = GetTableColumns(conn, "rcompanies");
-            bool isV2 = cols.Contains("name") && cols.Contains("zip_code");
             bool isV1 = cols.Contains("f01");
+            bool isV2 = cols.Contains("name") && cols.Contains("zip_code");
 
             if (isV1 && !isV2)
             {
-                Console.WriteLine("偵測到 rcompanies 為第一階段欄位（f01..f08），開始 migration 到第二階段命名...");
+                Console.WriteLine("偵測到 rcompanies 為 v1（f01..f08），開始 migration 到 v2...");
                 MigrateRCompaniesV1ToV2(conn);
-                Console.WriteLine("rcompanies migration 完成");
+                Console.WriteLine("rcompanies v1->v2 完成");
             }
             else if (!isV2)
             {
-                Console.WriteLine("警告：rcompanies 表已存在，但欄位不符合預期（既不是 v1 也不是 v2）。請檢查 DB。");
+                Console.WriteLine("警告：rcompanies 表已存在，但欄位不符合預期（非 v1/v2）。請檢查 DB。");
             }
         }
 
         CreateIndexes(conn);
     }
 
-    static void CreateCompaniesV2(SqliteConnection conn)
+    static void CreateCompaniesV3(SqliteConnection conn)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
@@ -152,17 +160,17 @@ CREATE TABLE IF NOT EXISTS companies (
   money TEXT,
   area TEXT,
 
-  c1 TEXT,
-  c2 TEXT,
-  c3 TEXT,
+  company_reg_date TEXT,
+  company_reg_prefix TEXT,
+  company_reg_no TEXT,
 
-  f1 TEXT,
-  f2 TEXT,
-  f3 TEXT,
+  factory_reg_date TEXT,
+  factory_reg_prefix TEXT,
+  factory_reg_no TEXT,
 
-  c_date TEXT,
-  join_date TEXT,
-  re_date TEXT,
+  join_date TEXT,         -- UI 統一用這個日期
+  c_date TEXT,            -- 舊資料保留但 UI 不用
+  re_date TEXT,           -- 舊資料保留但 UI 不用
 
   c_tel TEXT,
   c_fax TEXT,
@@ -197,6 +205,9 @@ CREATE TABLE IF NOT EXISTS companies (
   classify TEXT,
   area_class TEXT,
 
+  contact_person TEXT,
+  extension TEXT,
+
   equipment_text TEXT,
   source_line TEXT,
   updated_at TEXT
@@ -230,6 +241,7 @@ CREATE TABLE IF NOT EXISTS rcompanies (
         cmd.CommandText = @"
 CREATE INDEX IF NOT EXISTS idx_companies_cname ON companies(cname);
 CREATE INDEX IF NOT EXISTS idx_companies_area ON companies(area);
+CREATE INDEX IF NOT EXISTS idx_companies_tax_id ON companies(tax_id);
 CREATE INDEX IF NOT EXISTS idx_companies_classify ON companies(classify);
 CREATE INDEX IF NOT EXISTS idx_companies_area_class ON companies(area_class);
 
@@ -242,7 +254,7 @@ CREATE INDEX IF NOT EXISTS idx_rcompanies_name ON rcompanies(name);
     {
         using var tx = conn.BeginTransaction();
 
-        // 1) create new table
+        // create v2 temp table
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -311,8 +323,7 @@ CREATE TABLE IF NOT EXISTS companies_new (
             cmd.ExecuteNonQuery();
         }
 
-        // 2) copy data (v1: number + f01..f42)
-        // 注意：v1 的 f01 其實就是 number 再存一次，所以用 COALESCE(number, f01)
+        // copy v1 -> v2 mapping
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -397,7 +408,7 @@ FROM companies;
             cmd.ExecuteNonQuery();
         }
 
-        // 3) drop old, rename
+        // replace
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -410,6 +421,168 @@ ALTER TABLE companies_new RENAME TO companies;
 
         tx.Commit();
     }
+
+    static void MigrateCompaniesV2ToV3(SqliteConnection conn)
+    {
+        using var tx = conn.BeginTransaction();
+
+        // create v3 temp table
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+CREATE TABLE IF NOT EXISTS companies_new (
+  number TEXT PRIMARY KEY,
+
+  cname TEXT,
+  ename TEXT,
+  c_address TEXT,
+  f_address TEXT,
+  tax_id TEXT,
+  money TEXT,
+  area TEXT,
+
+  company_reg_date TEXT,
+  company_reg_prefix TEXT,
+  company_reg_no TEXT,
+
+  factory_reg_date TEXT,
+  factory_reg_prefix TEXT,
+  factory_reg_no TEXT,
+
+  join_date TEXT,
+  c_date TEXT,
+  re_date TEXT,
+
+  c_tel TEXT,
+  c_fax TEXT,
+  f_tel TEXT,
+  f_fax TEXT,
+
+  chief TEXT,
+  title TEXT,
+  pid TEXT,
+  sex TEXT,
+  p_address TEXT,
+
+  ca TEXT,
+  cn TEXT,
+  c_area TEXT,
+
+  v_date TEXT,
+  v_date2 TEXT,
+
+  chairman TEXT,
+  chairman_e TEXT,
+  gm TEXT,
+  gm_e TEXT,
+
+  main_product TEXT,
+  main_product_e TEXT,
+
+  email TEXT,
+  http TEXT,
+  address_e TEXT,
+
+  classify TEXT,
+  area_class TEXT,
+
+  contact_person TEXT,
+  extension TEXT,
+
+  equipment_text TEXT,
+  source_line TEXT,
+  updated_at TEXT
+);
+";
+            cmd.ExecuteNonQuery();
+        }
+
+        // copy v2 -> v3 mapping
+        // v2 沒有 contact_person / extension，所以這裡不要引用它們
+        // 直接 contact_person = chief，extension = ''
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+INSERT INTO companies_new (
+  number,
+  cname, ename, c_address, f_address, tax_id, money, area,
+
+  company_reg_date, company_reg_prefix, company_reg_no,
+  factory_reg_date, factory_reg_prefix, factory_reg_no,
+
+  join_date, c_date, re_date,
+
+  c_tel, c_fax, f_tel, f_fax,
+
+  chief, title, pid, sex, p_address,
+
+  ca, cn, c_area,
+
+  v_date, v_date2,
+  chairman, chairman_e, gm, gm_e,
+
+  main_product, main_product_e,
+  email, http, address_e,
+
+  classify, area_class,
+
+  contact_person, extension,
+
+  equipment_text, source_line, updated_at
+)
+SELECT
+  number,
+  cname, ename, c_address, f_address, tax_id, money, area,
+
+  c1 AS company_reg_date,
+  c2 AS company_reg_prefix,
+  c3 AS company_reg_no,
+
+  f1 AS factory_reg_date,
+  f2 AS factory_reg_prefix,
+  f3 AS factory_reg_no,
+
+  join_date, c_date, re_date,
+
+  c_tel, c_fax, f_tel, f_fax,
+
+  chief, title, pid, sex, p_address,
+
+  ca, cn, c_area,
+
+  v_date, v_date2,
+  chairman, chairman_e, gm, gm_e,
+
+  main_product, main_product_e,
+  email, http, address_e,
+
+  classify, area_class,
+
+  COALESCE(chief, '') AS contact_person,
+  '' AS extension,
+
+  equipment_text, source_line, updated_at
+FROM companies;
+";
+            cmd.ExecuteNonQuery();
+        }
+
+        // replace
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+DROP TABLE companies;
+ALTER TABLE companies_new RENAME TO companies;
+";
+            cmd.ExecuteNonQuery();
+        }
+
+        tx.Commit();
+    }
+
 
     static void MigrateRCompaniesV1ToV2(SqliteConnection conn)
     {
@@ -437,7 +610,6 @@ CREATE TABLE IF NOT EXISTS rcompanies_new (
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            // v1 的 f01..f08：實際上舊 Java 只用到 0..6，最後常是空
             cmd.CommandText = @"
 INSERT INTO rcompanies_new (code, name, chief, newsletter_copies, address, comment, zip_code, source_line, updated_at)
 SELECT
@@ -492,7 +664,7 @@ ALTER TABLE rcompanies_new RENAME TO rcompanies;
     }
 
     // =========================
-    // Import (v2 columns)
+    // Import (v3 columns)
     // =========================
 
     static int ImportCompanies(SqliteConnection conn, SqliteTransaction tx, string companyPath, string comDir, Encoding big5)
@@ -506,17 +678,30 @@ ALTER TABLE rcompanies_new RENAME TO rcompanies;
         {
             "number",
             "cname","ename","c_address","f_address","tax_id","money","area",
-            "c1","c2","c3",
-            "f1","f2","f3",
+
+            "company_reg_date","company_reg_prefix","company_reg_no",
+            "factory_reg_date","factory_reg_prefix","factory_reg_no",
+
             "c_date","join_date","re_date",
+
             "c_tel","c_fax","f_tel","f_fax",
+
             "chief","title","pid","sex","p_address",
+
             "ca","cn","c_area",
+
             "v_date","v_date2",
+
             "chairman","chairman_e","gm","gm_e",
+
             "main_product","main_product_e",
+
             "email","http","address_e",
+
             "classify","area_class",
+
+            "contact_person","extension",
+
             "equipment_text","source_line","updated_at"
         };
 
@@ -556,10 +741,8 @@ ON CONFLICT(number) DO UPDATE SET {updateSet};
 
             var equipment = ReadEquipmentText(comDir, number, big5) ?? "";
 
-            // 依照 Java comPool 的 index 對應
-            // 0..41 對應 number..areaClass
+            // 基本
             upsert.Parameters["@number"].Value = number;
-
             upsert.Parameters["@cname"].Value = parts[1];
             upsert.Parameters["@ename"].Value = parts[2];
             upsert.Parameters["@c_address"].Value = parts[3];
@@ -568,51 +751,67 @@ ON CONFLICT(number) DO UPDATE SET {updateSet};
             upsert.Parameters["@money"].Value = parts[6];
             upsert.Parameters["@area"].Value = parts[7];
 
-            upsert.Parameters["@c1"].Value = parts[8];
-            upsert.Parameters["@c2"].Value = parts[9];
-            upsert.Parameters["@c3"].Value = parts[10];
+            // 登記：照你確認的定義
+            upsert.Parameters["@company_reg_date"].Value = parts[8];   // C1=日
+            upsert.Parameters["@company_reg_prefix"].Value = parts[9]; // C2=字
+            upsert.Parameters["@company_reg_no"].Value = parts[10];    // C3=號
 
-            upsert.Parameters["@f1"].Value = parts[11];
-            upsert.Parameters["@f2"].Value = parts[12];
-            upsert.Parameters["@f3"].Value = parts[13];
+            upsert.Parameters["@factory_reg_date"].Value = parts[11];   // F1=日
+            upsert.Parameters["@factory_reg_prefix"].Value = parts[12]; // F2=字
+            upsert.Parameters["@factory_reg_no"].Value = parts[13];     // F3=號
 
+            // 日期：UI 統一用 join_date
             upsert.Parameters["@c_date"].Value = parts[14];
             upsert.Parameters["@join_date"].Value = parts[15];
             upsert.Parameters["@re_date"].Value = parts[16];
 
+            // 電話/傳真
             upsert.Parameters["@c_tel"].Value = parts[17];
             upsert.Parameters["@c_fax"].Value = parts[18];
             upsert.Parameters["@f_tel"].Value = parts[19];
             upsert.Parameters["@f_fax"].Value = parts[20];
 
+            // 人員
             upsert.Parameters["@chief"].Value = parts[21];
             upsert.Parameters["@title"].Value = parts[22];
             upsert.Parameters["@pid"].Value = parts[23];
             upsert.Parameters["@sex"].Value = parts[24];
             upsert.Parameters["@p_address"].Value = parts[25];
 
+            // 會訊/郵遞區號
             upsert.Parameters["@ca"].Value = parts[26];
             upsert.Parameters["@cn"].Value = parts[27];
             upsert.Parameters["@c_area"].Value = parts[28];
 
+            // 有效日期
             upsert.Parameters["@v_date"].Value = parts[29];
             upsert.Parameters["@v_date2"].Value = parts[30];
 
+            // 董事長/總經理
             upsert.Parameters["@chairman"].Value = parts[31];
             upsert.Parameters["@chairman_e"].Value = parts[32];
             upsert.Parameters["@gm"].Value = parts[33];
             upsert.Parameters["@gm_e"].Value = parts[34];
 
+            // 主要產品
             upsert.Parameters["@main_product"].Value = parts[35];
             upsert.Parameters["@main_product_e"].Value = parts[36];
 
+            // 聯絡
             upsert.Parameters["@email"].Value = parts[37];
             upsert.Parameters["@http"].Value = parts[38];
             upsert.Parameters["@address_e"].Value = parts[39];
 
+            // 分類
             upsert.Parameters["@classify"].Value = parts[40];
             upsert.Parameters["@area_class"].Value = parts[41];
 
+            // 新增欄位：舊資料預填 contact_person=chief，extension 空
+            var chief = (parts[21] ?? "").Trim();
+            upsert.Parameters["@contact_person"].Value = string.IsNullOrEmpty(chief) ? "" : chief;
+            upsert.Parameters["@extension"].Value = "";
+
+            // 其他
             upsert.Parameters["@equipment_text"].Value = equipment;
             upsert.Parameters["@source_line"].Value = raw;
             upsert.Parameters["@updated_at"].Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
@@ -665,7 +864,6 @@ updated_at=excluded.updated_at;
 
             var parts = raw.Split('|');
 
-            // 舊檔通常是 7 欄 + 最後一個空欄（尾巴多一個 |），所以可能是 7 或 8
             if (parts.Length < 7)
             {
                 Console.WriteLine($"[WARN] Rcompany.txt 欄位數不足（至少要 7）：{parts.Length}，line={raw}");
