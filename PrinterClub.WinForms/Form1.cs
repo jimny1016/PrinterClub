@@ -1,13 +1,14 @@
-using PrinterClub.Data;
-using System.Collections.Generic;
+Ôªøusing PrinterClub.Data;
 
 namespace PrinterClub.WinForms
 {
-
     public class Form1 : Form
     {
         private readonly CompanyRepository _companyRepo;
         private List<CompanyLite> _companyLastQuery = new();
+
+        private readonly RCompanyRepository _rcompanyRepo;
+        private List<RCompanyLite> _rcompanyLastQuery = new();
 
         private readonly TabControl tabMain;
 
@@ -18,7 +19,6 @@ namespace PrinterClub.WinForms
         private Button btnCompanyClear;
         private DataGridView dgvCompanies;
         private Button btnCompanyAdd;
-        private Button btnCompanyEdit;
         private Button btnCompanyDelete;
         private Button btnCompanyPrint;
 
@@ -29,58 +29,58 @@ namespace PrinterClub.WinForms
         private Button btnRCompanyClear;
         private DataGridView dgvRCompanies;
         private Button btnRCompanyAdd;
-        private Button btnRCompanyEdit;
         private Button btnRCompanyDelete;
         private Button btnRCompanyPrint;
-        private readonly string menberNumberString = "∑|ƒyΩs∏π";
-        private readonly string companyString = "§Ω•q¶W∫Ÿ";
-        private readonly string taxIDString = "≤Œ§@Ωs∏π";
-        private readonly string joinDateString = "•[§J§È¥¡";
 
+        // ====== UI È°ØÁ§∫Â≠ó‰∏≤Ôºà‰∏≠ÊñáÂç≥ÂèØÔºâ======
+        private readonly string menberNumberString = "ÊúÉÁ±çÁ∑®Ëôü";
+        private readonly string companyString = "ÂÖ¨Âè∏ÂêçÁ®±";
+        private readonly string taxIDString = "Áµ±‰∏ÄÁ∑®Ëôü";
+        private readonly string joinDateString = "Âä†ÂÖ•Êó•Êúü";
+
+        private readonly string rCodeString = "‰ª£Á¢º";
+        private readonly string rNameString = "ÂêçÁ®±";
+        private readonly string rChiefString = "ËÅØÁµ°‰∫∫";
+        private readonly string rZipString = "ÈÉµÈÅûÂçÄËôü";
 
         public Form1()
         {
-            // ===== Window =====
-            Text = "PrinterClub - ∑|≠˚∏ÍÆ∆∫ﬁ≤z";
+            Text = "PrinterClub - ÊúÉÂì°Ë≥áÊñôÁÆ°ÁêÜ";
             StartPosition = FormStartPosition.CenterScreen;
 
-            // ©T©w§ÿ§o°GßA•˝•Œ 800x600°]§ß´·∑Q FullHD ¶AΩ’°^
             ClientSize = new Size(800, 600);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             MinimizeBox = true;
 
-            // ===== Tabs =====
-            tabMain = new TabControl
-            {
-                Dock = DockStyle.Fill
-            };
+            tabMain = new TabControl { Dock = DockStyle.Fill };
 
-            var tabCompanies = new TabPage("∑|≠˚∏ÍÆ∆∫ﬁ≤z");
-            var tabRCompanies = new TabPage("¨€√ˆºt∞”§Œæ«Æ’∫ﬁ≤z");
+            var tabCompanies = new TabPage("ÊúÉÂì°Ë≥áÊñôÁÆ°ÁêÜ");
+            var tabRCompanies = new TabPage("Áõ∏ÈóúÂª†ÂïÜÂèäÂ≠∏Ê†°ÁÆ°ÁêÜ");
 
             tabMain.TabPages.Add(tabCompanies);
             tabMain.TabPages.Add(tabRCompanies);
-
             Controls.Add(tabMain);
 
             BuildCompaniesTab(tabCompanies);
             BuildRCompaniesTab(tabRCompanies);
 
-            _companyRepo = new CompanyRepository(CompanyRepository.ResolveDefaultDbPath());
+            var dbPath = CompanyRepository.ResolveDefaultDbPath();
+            _companyRepo = new CompanyRepository(dbPath);
+            _rcompanyRepo = new RCompanyRepository(CompanyRepository.ResolveDefaultDbPath());
 
-            // ™Ï¶∏∏¸§J°G¶C•X´e N µß
+            // ÂàùÊ¨°ËºâÂÖ•ÔºöÂàóÂá∫Ââç N Á≠Ü
             LoadCompaniesToGrid(_companyRepo.Search("", "", 200));
+            LoadRCompaniesToGrid(_rcompanyRepo.Search("", "", 200));
         }
 
         private void BuildCompaniesTab(TabPage page)
         {
             page.Padding = new Padding(10);
 
-            // §W•b≥°°G¨d∏ﬂ±¯•Û
             var grpSearch = new GroupBox
             {
-                Text = "¨d∏ﬂ",
+                Text = "Êü•Ë©¢",
                 Dock = DockStyle.Top,
                 Height = 95
             };
@@ -115,19 +115,18 @@ namespace PrinterClub.WinForms
 
             btnCompanySearch = new Button
             {
-                Text = "¨d∏ﬂ",
+                Text = "Êü•Ë©¢",
                 Width = 90,
                 Location = new Point(660, 22)
             };
 
             btnCompanyClear = new Button
             {
-                Text = "≤M™≈",
+                Text = "Ê∏ÖÁ©∫",
                 Width = 90,
                 Location = new Point(660, 52)
             };
 
-            // Enter ™Ω±µ¨d∏ﬂ
             txtCompanyNumber.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) DoCompanySearch(); };
             txtCompanyName.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) DoCompanySearch(); };
 
@@ -146,7 +145,6 @@ namespace PrinterClub.WinForms
             grpSearch.Controls.Add(btnCompanySearch);
             grpSearch.Controls.Add(btnCompanyClear);
 
-            // §§∂°°G¶C™Ì
             dgvCompanies = new DataGridView
             {
                 Dock = DockStyle.Fill,
@@ -162,22 +160,24 @@ namespace PrinterClub.WinForms
             dgvCompanies.Columns.Add(companyString, companyString);
             dgvCompanies.Columns.Add(taxIDString, taxIDString);
             dgvCompanies.Columns.Add(joinDateString, joinDateString);
+
             dgvCompanies.CellDoubleClick += (s, e) =>
             {
                 if (e.RowIndex < 0) return;
+
                 try
                 {
                     var selected = GetSelectedCompany();
                     if (selected == null)
                     {
-                        MessageBox.Show("Ω–•˝øÔ®˙§@µß∏ÍÆ∆°C");
+                        MessageBox.Show("Ë´ãÂÖàÈÅ∏Âèñ‰∏ÄÁ≠ÜË≥áÊñô„ÄÇ");
                         return;
                     }
 
                     var full = _companyRepo.GetByNumber(selected.Number);
                     if (full == null)
                     {
-                        MessageBox.Show("∏ÍÆ∆§£¶s¶b°A•iØ‡§w≥QßR∞£°C");
+                        MessageBox.Show("Ë≥áÊñô‰∏çÂ≠òÂú®ÔºåÂèØËÉΩÂ∑≤Ë¢´Âà™Èô§„ÄÇ");
                         DoCompanySearch();
                         return;
                     }
@@ -187,34 +187,24 @@ namespace PrinterClub.WinForms
                     if (r != DialogResult.OK || f.Result == null) return;
 
                     if (f.IsDeleted)
-                    {
                         _companyRepo.Delete(f.Result.Number);
-                    }
                     else
-                    {
                         _companyRepo.Update(f.Result);
-                    }
 
                     DoCompanySearch();
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "≠◊ßÔ/ßR∞£•¢±—", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(ex.Message, "‰øÆÊîπ/Âà™Èô§Â§±Êïó", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             };
 
-            // §U•b≥°°G´ˆ∂s¶C
-            var pnlActions = new Panel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 48
-            };
+            var pnlActions = new Panel { Dock = DockStyle.Bottom, Height = 48 };
 
-            btnCompanyAdd = new Button { Text = "∑sºW", Width = 90, Location = new Point(10, 10) };
-            btnCompanyDelete = new Button { Text = "ßR∞£", Width = 90, Location = new Point(110, 10) };
-            btnCompanyPrint = new Button { Text = "¶C¶L", Width = 90, Location = new Point(210, 10) };
+            btnCompanyAdd = new Button { Text = "Êñ∞Â¢û", Width = 90, Location = new Point(10, 10) };
+            btnCompanyDelete = new Button { Text = "Âà™Èô§", Width = 90, Location = new Point(110, 10) };
+            btnCompanyPrint = new Button { Text = "ÂàóÂç∞", Width = 90, Location = new Point(210, 10) };
 
-            // •˝±µ placeholder
             btnCompanyAdd.Click += (s, e) =>
             {
                 try
@@ -224,11 +214,11 @@ namespace PrinterClub.WinForms
                     if (r != DialogResult.OK || f.Result == null || f.IsDeleted) return;
 
                     _companyRepo.Insert(f.Result);
-                    DoCompanySearch(); // ≠´∑s¨d∏ﬂ®Í∑s°]∑|®Ã•ÿ´e∑j¥M±¯•Û°^
+                    DoCompanySearch();
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "∑sºW•¢±—", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(ex.Message, "Êñ∞Â¢ûÂ§±Êïó", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             };
 
@@ -239,11 +229,11 @@ namespace PrinterClub.WinForms
                     var selected = GetSelectedCompany();
                     if (selected == null)
                     {
-                        MessageBox.Show("Ω–•˝øÔ®˙§@µß∏ÍÆ∆°C");
+                        MessageBox.Show("Ë´ãÂÖàÈÅ∏Âèñ‰∏ÄÁ≠ÜË≥áÊñô„ÄÇ");
                         return;
                     }
 
-                    var ok = MessageBox.Show($"ΩT©wßR∞£ number={selected.Number}°H", "ßR∞£ΩTª{",
+                    var ok = MessageBox.Show($"Á¢∫ÂÆöÂà™Èô§ {menberNumberString} = {selected.Number}Ôºü", "Âà™Èô§Á¢∫Ë™ç",
                         MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
 
                     if (ok != DialogResult.Yes) return;
@@ -253,11 +243,11 @@ namespace PrinterClub.WinForms
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "ßR∞£•¢±—", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(ex.Message, "Âà™Èô§Â§±Êïó", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             };
 
-            btnCompanyPrint.Click += (s, e) => MessageBox.Show("TODO: ¶C¶L Companies");
+            btnCompanyPrint.Click += (s, e) => MessageBox.Show("TODO: ÂàóÂç∞ÔºàÊúÉÂì°Áî≥Ë´ãË°®Ôºâ");
 
             pnlActions.Controls.Add(btnCompanyAdd);
             pnlActions.Controls.Add(btnCompanyDelete);
@@ -274,14 +264,14 @@ namespace PrinterClub.WinForms
 
             var grpSearch = new GroupBox
             {
-                Text = "¨d∏ﬂ±¯•Û°]RCompanies°^",
+                Text = "Êü•Ë©¢",
                 Dock = DockStyle.Top,
                 Height = 95
             };
 
             var lblCode = new Label
             {
-                Text = "code°]∫Î∑«°^",
+                Text = "‰ª£Á¢º",
                 AutoSize = true,
                 Location = new Point(12, 28)
             };
@@ -295,7 +285,7 @@ namespace PrinterClub.WinForms
 
             var lblName = new Label
             {
-                Text = "name°]º“Ωk°^",
+                Text = "ÂêçÁ®±",
                 AutoSize = true,
                 Location = new Point(300, 28)
             };
@@ -309,14 +299,14 @@ namespace PrinterClub.WinForms
 
             btnRCompanySearch = new Button
             {
-                Text = "¨d∏ﬂ",
+                Text = "Êü•Ë©¢",
                 Width = 90,
                 Location = new Point(660, 22)
             };
 
             btnRCompanyClear = new Button
             {
-                Text = "≤M™≈",
+                Text = "Ê∏ÖÁ©∫",
                 Width = 90,
                 Location = new Point(660, 52)
             };
@@ -329,6 +319,7 @@ namespace PrinterClub.WinForms
             {
                 txtRCompanyCode.Text = "";
                 txtRCompanyName.Text = "";
+                DoRCompanySearch();
             };
 
             grpSearch.Controls.Add(lblCode);
@@ -349,10 +340,52 @@ namespace PrinterClub.WinForms
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
             };
 
-            dgvRCompanies.Columns.Add("code", "code");
-            dgvRCompanies.Columns.Add("name", "name");
-            dgvRCompanies.Columns.Add("chief", "chief");
-            dgvRCompanies.Columns.Add("zip_code", "zip_code");
+            // ‚úÖ ÂàóË°®Âè™È°ØÁ§∫‰∏âÊ¨ÑÔºö‰ª£Á¢º/ÂêçÁ®±/ËÅØÁµ°‰∫∫
+            dgvRCompanies.Columns.Add("‰ª£Á¢º", "‰ª£Á¢º");
+            dgvRCompanies.Columns.Add("ÂêçÁ®±", "ÂêçÁ®±");
+            dgvRCompanies.Columns.Add("ËÅØÁµ°‰∫∫", "ËÅØÁµ°‰∫∫");
+
+            dgvRCompanies.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex < 0) return;
+
+                try
+                {
+                    var selected = GetSelectedRCompany();
+                    if (selected == null)
+                    {
+                        MessageBox.Show("Ë´ãÂÖàÈÅ∏Âèñ‰∏ÄÁ≠ÜË≥áÊñô„ÄÇ");
+                        return;
+                    }
+
+                    var full = _rcompanyRepo.GetByCode(selected.Code);
+                    if (full == null)
+                    {
+                        MessageBox.Show("Ë≥áÊñô‰∏çÂ≠òÂú®ÔºåÂèØËÉΩÂ∑≤Ë¢´Âà™Èô§„ÄÇ");
+                        DoRCompanySearch();
+                        return;
+                    }
+
+                    using var f = new RCompanyDetailForm(full, DetailFormMode.View);
+                    var r = f.ShowDialog(this);
+                    if (r != DialogResult.OK || f.Result == null) return;
+
+                    if (f.IsDeleted)
+                    {
+                        _rcompanyRepo.Delete(f.Result.Code);
+                    }
+                    else
+                    {
+                        _rcompanyRepo.Update(f.Result);
+                    }
+
+                    DoRCompanySearch();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "‰øÆÊîπ/Âà™Èô§Â§±Êïó", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
 
             var pnlActions = new Panel
             {
@@ -360,18 +393,55 @@ namespace PrinterClub.WinForms
                 Height = 48
             };
 
-            btnRCompanyAdd = new Button { Text = "∑sºW", Width = 90, Location = new Point(10, 10) };
-            btnRCompanyEdit = new Button { Text = "≠◊ßÔ", Width = 90, Location = new Point(110, 10) };
-            btnRCompanyDelete = new Button { Text = "ßR∞£", Width = 90, Location = new Point(210, 10) };
-            btnRCompanyPrint = new Button { Text = "¶C¶L", Width = 90, Location = new Point(310, 10) };
+            btnRCompanyAdd = new Button { Text = "Êñ∞Â¢û", Width = 90, Location = new Point(10, 10) };
+            btnRCompanyDelete = new Button { Text = "Âà™Èô§", Width = 90, Location = new Point(110, 10) };
+            btnRCompanyPrint = new Button { Text = "ÂàóÂç∞", Width = 90, Location = new Point(210, 10) };
 
-            btnRCompanyAdd.Click += (s, e) => MessageBox.Show("TODO: ∑sºW RCompanies");
-            btnRCompanyEdit.Click += (s, e) => MessageBox.Show("TODO: ≠◊ßÔ RCompanies");
-            btnRCompanyDelete.Click += (s, e) => MessageBox.Show("TODO: ßR∞£ RCompanies");
-            btnRCompanyPrint.Click += (s, e) => MessageBox.Show("TODO: ¶C¶L RCompanies");
+            btnRCompanyAdd.Click += (s, e) =>
+            {
+                try
+                {
+                    using var f = new RCompanyDetailForm(null, DetailFormMode.New);
+                    var r = f.ShowDialog(this);
+                    if (r != DialogResult.OK || f.Result == null || f.IsDeleted) return;
+
+                    _rcompanyRepo.Insert(f.Result);
+                    DoRCompanySearch();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "Êñ∞Â¢ûÂ§±Êïó", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
+
+            btnRCompanyDelete.Click += (s, e) =>
+            {
+                try
+                {
+                    var selected = GetSelectedRCompany();
+                    if (selected == null)
+                    {
+                        MessageBox.Show("Ë´ãÂÖàÈÅ∏Âèñ‰∏ÄÁ≠ÜË≥áÊñô„ÄÇ");
+                        return;
+                    }
+
+                    var ok = MessageBox.Show($"Á¢∫ÂÆöÂà™Èô§ ‰ª£Á¢º={selected.Code}Ôºü", "Âà™Èô§Á¢∫Ë™ç",
+                        MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+                    if (ok != DialogResult.Yes) return;
+
+                    _rcompanyRepo.Delete(selected.Code);
+                    DoRCompanySearch();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "Âà™Èô§Â§±Êïó", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
+
+            btnRCompanyPrint.Click += (s, e) => MessageBox.Show("TODO: ÂàóÂç∞ÔºàÁõ∏ÈóúÂª†ÂïÜ/Â≠∏Ê†°Ôºâ");
 
             pnlActions.Controls.Add(btnRCompanyAdd);
-            pnlActions.Controls.Add(btnRCompanyEdit);
             pnlActions.Controls.Add(btnRCompanyDelete);
             pnlActions.Controls.Add(btnRCompanyPrint);
 
@@ -379,18 +449,12 @@ namespace PrinterClub.WinForms
             page.Controls.Add(pnlActions);
             page.Controls.Add(grpSearch);
         }
+
         private void LoadCompaniesToGrid(List<CompanyLite> list)
         {
             _companyLastQuery = list ?? new List<CompanyLite>();
 
             dgvCompanies.Rows.Clear();
-            if (dgvCompanies.Columns.Count == 0)
-            {
-                dgvCompanies.Columns.Add("number", "number");
-                dgvCompanies.Columns.Add("cname", "cname");
-                dgvCompanies.Columns.Add("tax_id", "tax_id");
-                dgvCompanies.Columns.Add("join_date", "join_date");
-            }
 
             foreach (var c in _companyLastQuery)
             {
@@ -425,31 +489,47 @@ namespace PrinterClub.WinForms
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "¨d∏ﬂ•¢±—", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(ex.Message, "Êü•Ë©¢Â§±Êïó", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private void LoadRCompaniesToGrid(List<RCompanyLite> list)
+        {
+            _rcompanyLastQuery = list ?? new List<RCompanyLite>();
+
+            dgvRCompanies.Rows.Clear();
+            foreach (var r in _rcompanyLastQuery)
+            {
+                dgvRCompanies.Rows.Add(r.Code, r.Name, r.Chief);
+            }
+        }
+
+        private RCompanyLite? GetSelectedRCompany()
+        {
+            if (dgvRCompanies.CurrentRow == null) return null;
+            var idx = dgvRCompanies.CurrentRow.Index;
+            if (idx < 0 || idx >= _rcompanyLastQuery.Count) return null;
+            return _rcompanyLastQuery[idx];
         }
 
         private void DoRCompanySearch()
         {
-            // ≥W´h°Gcode ∫Î∑«°Bname º“Ωk
-            var code = (txtRCompanyCode.Text ?? "").Trim();
-            var name = (txtRCompanyName.Text ?? "").Trim();
+            try
+            {
+                var code = (txtRCompanyCode.Text ?? "").Trim();
+                var name = (txtRCompanyName.Text ?? "").Trim();
 
-            if (!string.IsNullOrEmpty(code) && !string.IsNullOrEmpty(name))
-            {
-                MessageBox.Show("´ÿƒ≥°Gcode ªP name ¶PÆ…øÈ§JÆ…°A•H code ∫Î∑«¨∞•D°]©ŒßA§]•i•H∞µ AND ∑j¥M°^°C\n•ÿ´e•˝∞µ UI°A∏ÍÆ∆Æwµy´·±µ°C");
+                if (!string.IsNullOrEmpty(code))
+                {
+                    LoadRCompaniesToGrid(_rcompanyRepo.Search(code, "", 200));
+                    return;
+                }
+
+                LoadRCompaniesToGrid(_rcompanyRepo.Search("", name, 200));
             }
-            else if (!string.IsNullOrEmpty(code))
+            catch (Exception ex)
             {
-                MessageBox.Show($"TODO: ¨d∏ﬂ RCompanies by code = '{code}'");
-            }
-            else if (!string.IsNullOrEmpty(name))
-            {
-                MessageBox.Show($"TODO: ¨d∏ﬂ RCompanies by name LIKE '%{name}%'");
-            }
-            else
-            {
-                MessageBox.Show("TODO: §£±a±¯•Û -> ¶C•X´e N µß RCompanies°]©Œ•˛≥°°^");
+                MessageBox.Show(ex.Message, "Êü•Ë©¢Â§±Êïó", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
