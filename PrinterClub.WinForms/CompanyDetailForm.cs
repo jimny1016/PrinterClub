@@ -23,8 +23,13 @@ namespace PrinterClub.WinForms
 
         // controls
         private TextBox txtNumber, txtCName, txtCAddress, txtFAddress, txtTaxId, txtMoney, txtArea;
+
+        // 公司登記（日期/字/號）拆成三欄
         private TextBox txtCompanyRegDate, txtCompanyRegPrefix, txtCompanyRegNo;
+
+        // 工廠登記（日期/字/號）拆成三欄
         private TextBox txtFactoryRegDate, txtFactoryRegPrefix, txtFactoryRegNo;
+
         private TextBox txtChief, txtContactPerson, txtExtension;
         private TextBox txtCTel, txtFTel, txtCFax, txtFFax, txtEmail;
         private TextBox txtMainProduct, txtEquipmentText, txtApplyDate;
@@ -39,7 +44,8 @@ namespace PrinterClub.WinForms
             Text = mode == DetailFormMode.New ? "Companies - 新增" : "Companies - 詳細資料";
             StartPosition = FormStartPosition.CenterParent;
 
-            ClientSize = new Size(920, 640);
+            // 放大一點（你說要擴大）
+            ClientSize = new Size(1080, 760);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
 
@@ -73,7 +79,6 @@ namespace PrinterClub.WinForms
             btnEdit.Click += (s, e) => ApplyMode(DetailFormMode.Edit);
             btnCancelEdit.Click += (s, e) =>
             {
-                // revert ui
                 LoadModelToUi();
                 ApplyMode(_mode == DetailFormMode.New ? DetailFormMode.New : DetailFormMode.View);
             };
@@ -88,7 +93,6 @@ namespace PrinterClub.WinForms
                     return;
                 }
 
-                // write back
                 Result = ReadUiToModel();
                 DialogResult = DialogResult.OK;
                 Close();
@@ -100,7 +104,7 @@ namespace PrinterClub.WinForms
                 if (r == DialogResult.Yes)
                 {
                     IsDeleted = true;
-                    Result = ReadUiToModel(); // 讓外部知道刪的是哪筆
+                    Result = ReadUiToModel();
                     DialogResult = DialogResult.OK;
                     Close();
                 }
@@ -114,29 +118,40 @@ namespace PrinterClub.WinForms
             root.Controls.Add(scroll, 0, 1);
 
             // --- form layout ---
+            // 改成 6 欄，讓「公司登記日期/字/號」可以放在同一列且每個都有自己的格子
+            // 欄配置：L / TB / L / TB / L / TB
             var form = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
                 AutoSize = true,
-                ColumnCount = 4
+                ColumnCount = 6
             };
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140)); // label
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));  // input
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140)); // label
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));  // input
+
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));  // label
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34));   // input
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));  // label(small)
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16));   // input(small)
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));  // label(small)
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16));   // input(small)
 
             scroll.Controls.Add(form);
 
             // Helpers
-            Label L(string t) => new Label { Text = t, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(6, 10, 6, 6) };
-            TextBox T(int w = 0, bool multiline = false, int height = 26)
+            Label L(string t) => new Label
+            {
+                Text = t,
+                AutoSize = true,
+                Anchor = AnchorStyles.Left,
+                Margin = new Padding(6, 10, 6, 6)
+            };
+
+            TextBox T(bool multiline = false, int height = 26)
             {
                 var tb = new TextBox
                 {
                     Anchor = AnchorStyles.Left | AnchorStyles.Right,
                     Margin = new Padding(6, 6, 6, 6),
                 };
-                if (w > 0) tb.Width = w;
                 if (multiline)
                 {
                     tb.Multiline = true;
@@ -146,7 +161,7 @@ namespace PrinterClub.WinForms
                 return tb;
             }
 
-            void AddRow(Control l1, Control c1, Control l2, Control c2)
+            void AddRow6(Control l1, Control c1, Control l2, Control c2, Control l3, Control c3)
             {
                 int r = form.RowCount;
                 form.RowCount += 1;
@@ -155,98 +170,94 @@ namespace PrinterClub.WinForms
                 form.Controls.Add(c1, 1, r);
                 form.Controls.Add(l2, 2, r);
                 form.Controls.Add(c2, 3, r);
+                form.Controls.Add(l3, 4, r);
+                form.Controls.Add(c3, 5, r);
+            }
+
+            void AddRow2(Control l1, Control c1, Control l2, Control c2)
+            {
+                // 用 6 欄塞 2 組： (0,1) + (3,4,5 span)
+                int r = form.RowCount;
+                form.RowCount += 1;
+                form.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+                form.Controls.Add(l1, 0, r);
+                form.Controls.Add(c1, 1, r);
+
+                form.Controls.Add(l2, 2, r);
+                form.Controls.Add(c2, 3, r);
+                form.SetColumnSpan(c2, 3);
             }
 
             // Row: number / apply date
             txtNumber = T();
             txtApplyDate = T();
-            AddRow(L("會籍編號 *"), txtNumber, L("日期（年/月/日）"), txtApplyDate);
+            AddRow2(L("會籍編號 *"), txtNumber, L("日期（年/月/日）"), txtApplyDate);
 
-            // Row: company name
+            // Row: company name / area
             txtCName = T();
-            AddRow(L("公司名稱 *"), txtCName, L("地區"), txtArea = T());
+            txtArea = T();
+            AddRow2(L("公司名稱 *"), txtCName, L("地區"), txtArea);
 
             // Row: addresses
             txtCAddress = T();
             txtFAddress = T();
-            AddRow(L("營業地址"), txtCAddress, L("工廠地址"), txtFAddress);
+            AddRow2(L("營業地址"), txtCAddress, L("工廠地址"), txtFAddress);
 
             // Row: tax/money
             txtTaxId = T();
             txtMoney = T();
-            AddRow(L("統一編號"), txtTaxId, L("資本額"), txtMoney);
+            AddRow2(L("統一編號"), txtTaxId, L("資本額"), txtMoney);
 
-            // Row: 登記資訊（公司）
+            // ====== 你要改的重點：公司登記（日期/字/號）分開 ======
             txtCompanyRegDate = T();
             txtCompanyRegPrefix = T();
             txtCompanyRegNo = T();
-            // 放在同一格：date / prefix / no
-            var pnlCompanyReg = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false };
-            pnlCompanyReg.Controls.Add(txtCompanyRegDate);
-            pnlCompanyReg.Controls.Add(new Label { Text = "字", AutoSize = true, Margin = new Padding(4, 10, 4, 6) });
-            pnlCompanyReg.Controls.Add(txtCompanyRegPrefix);
-            pnlCompanyReg.Controls.Add(new Label { Text = "號", AutoSize = true, Margin = new Padding(4, 10, 4, 6) });
-            pnlCompanyReg.Controls.Add(txtCompanyRegNo);
-            // 調整寬度
-            txtCompanyRegDate.Width = 110;
-            txtCompanyRegPrefix.Width = 60;
-            txtCompanyRegNo.Width = 120;
+            AddRow6(L("公司登記日"), txtCompanyRegDate, L("字"), txtCompanyRegPrefix, L("號"), txtCompanyRegNo);
 
-            // Row: 登記資訊（工廠）
+            // ====== 你要改的重點：工廠登記（日期/字/號）分開 ======
             txtFactoryRegDate = T();
             txtFactoryRegPrefix = T();
             txtFactoryRegNo = T();
-            var pnlFactoryReg = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false };
-            pnlFactoryReg.Controls.Add(txtFactoryRegDate);
-            pnlFactoryReg.Controls.Add(new Label { Text = "字", AutoSize = true, Margin = new Padding(4, 10, 4, 6) });
-            pnlFactoryReg.Controls.Add(txtFactoryRegPrefix);
-            pnlFactoryReg.Controls.Add(new Label { Text = "號", AutoSize = true, Margin = new Padding(4, 10, 4, 6) });
-            pnlFactoryReg.Controls.Add(txtFactoryRegNo);
-            txtFactoryRegDate.Width = 110;
-            txtFactoryRegPrefix.Width = 60;
-            txtFactoryRegNo.Width = 120;
+            AddRow6(L("工廠登記日"), txtFactoryRegDate, L("字"), txtFactoryRegPrefix, L("號"), txtFactoryRegNo);
 
-            // 公司/工廠登記放成兩列
-            AddRow(L("公司登記（日期/字/號）"), pnlCompanyReg, L("工廠登記（日期/字/號）"), pnlFactoryReg);
-
-            // Row: chief/contact/ext
+            // Row: chief/contact
             txtChief = T();
             txtContactPerson = T();
-            AddRow(L("負責人"), txtChief, L("聯絡人"), txtContactPerson);
+            AddRow2(L("負責人"), txtChief, L("聯絡人"), txtContactPerson);
 
+            // Row: ext/email
             txtExtension = T();
-            AddRow(L("分機"), txtExtension, L("E-mail"), txtEmail = T());
+            txtEmail = T();
+            AddRow2(L("分機"), txtExtension, L("E-mail"), txtEmail);
 
-            // Row: tel/fax
+            // Row: tel
             txtCTel = T();
             txtFTel = T();
-            AddRow(L("公司電話"), txtCTel, L("工廠電話"), txtFTel);
+            AddRow2(L("公司電話"), txtCTel, L("工廠電話"), txtFTel);
 
+            // Row: fax
             txtCFax = T();
             txtFFax = T();
-            AddRow(L("傳真-公司"), txtCFax, L("傳真-工廠"), txtFFax);
+            AddRow2(L("傳真-公司"), txtCFax, L("傳真-工廠"), txtFFax);
 
             // Row: products
             txtMainProduct = T();
-            AddRow(L("主要產品"), txtMainProduct, L(""), new Label { AutoSize = true });
+            AddRow2(L("主要產品"), txtMainProduct, L(""), new Label { AutoSize = true });
 
-            // Row: equipment (big)
-            txtEquipmentText = T(multiline: true, height: 180);
-            // equipment 佔兩欄
+            // equipment (big) span
+            txtEquipmentText = T(multiline: true, height: 200);
+
             int rEq = form.RowCount;
             form.RowCount += 1;
             form.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             form.Controls.Add(L("機器設備"), 0, rEq);
             form.Controls.Add(txtEquipmentText, 1, rEq);
-            form.SetColumnSpan(txtEquipmentText, 3);
-
-            // 讓右欄 label 空白不擠
-            form.Controls.Add(new Label { AutoSize = true }, 2, rEq);
+            form.SetColumnSpan(txtEquipmentText, 5);
         }
 
         private void ApplyMode(DetailFormMode mode)
         {
-            // 保存模式（View/Edit/New）
             _mode = mode;
 
             bool isView = mode == DetailFormMode.View;
@@ -261,18 +272,12 @@ namespace PrinterClub.WinForms
             // 其他欄位：View 只讀，Edit/New 可編輯
             SetEditable(!isView);
 
-            // buttons
             btnEdit.Visible = isView && !isNew;
             btnSave.Visible = !isView;
             btnCancelEdit.Visible = !isView;
-            btnDelete.Visible = !isNew; // 新增不顯示刪除
-            btnDelete.Enabled = isView || isEdit; // 有資料才可刪
+            btnDelete.Visible = !isNew;
+            btnDelete.Enabled = isView || isEdit;
 
-            // View 模式：不允許刪除？（你可選）
-            // 我這裡允許在 View 直接刪，但如果你要更安全：把下一行改成 isEdit 才能刪
-            // btnDelete.Enabled = isEdit;
-
-            // 如果現在是 View，確保全部 readonly
             if (isView)
             {
                 SetEditable(false);
@@ -282,7 +287,6 @@ namespace PrinterClub.WinForms
 
         private void SetEditable(bool editable)
         {
-            // 除 number 外全部跟著 editable
             void Set(TextBox tb) => tb.ReadOnly = !editable;
 
             Set(txtCName);
@@ -351,7 +355,6 @@ namespace PrinterClub.WinForms
 
         private CompanyLite ReadUiToModel()
         {
-            // 回傳一份新的（避免外部引用同物件）
             return new CompanyLite
             {
                 Number = (txtNumber.Text ?? "").Trim(),
@@ -389,7 +392,6 @@ namespace PrinterClub.WinForms
 
         private string ValidateInputs()
         {
-            // 你目前 UI 的必要欄位（最少集合）
             var number = (txtNumber.Text ?? "").Trim();
             var cname = (txtCName.Text ?? "").Trim();
 
@@ -397,9 +399,6 @@ namespace PrinterClub.WinForms
                 return "會籍編號（number）為必填。";
             if (string.IsNullOrEmpty(cname))
                 return "公司名稱（cname）為必填。";
-
-            // number / taxId 可做基本格式檢查（可選）
-            // if (!number.All(char.IsDigit)) return "會籍編號建議為數字。";
 
             return "";
         }
