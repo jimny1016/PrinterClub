@@ -160,21 +160,21 @@ namespace PrinterClub.WinForms
             // Row: number / apply date
             txtNumber = T();
             txtApplyDate = T();
-            AddRow(L("會籍編號 number *"), txtNumber, L("日期（年/月/日）"), txtApplyDate);
+            AddRow(L("會籍編號 *"), txtNumber, L("日期（年/月/日）"), txtApplyDate);
 
             // Row: company name
             txtCName = T();
-            AddRow(L("公司名稱 cname *"), txtCName, L("地區 area"), txtArea = T());
+            AddRow(L("公司名稱 *"), txtCName, L("地區"), txtArea = T());
 
             // Row: addresses
             txtCAddress = T();
             txtFAddress = T();
-            AddRow(L("營業地址 c_address"), txtCAddress, L("工廠地址 f_address"), txtFAddress);
+            AddRow(L("營業地址"), txtCAddress, L("工廠地址"), txtFAddress);
 
             // Row: tax/money
             txtTaxId = T();
             txtMoney = T();
-            AddRow(L("統一編號 tax_id"), txtTaxId, L("資本額 money"), txtMoney);
+            AddRow(L("統一編號"), txtTaxId, L("資本額"), txtMoney);
 
             // Row: 登記資訊（公司）
             txtCompanyRegDate = T();
@@ -212,23 +212,23 @@ namespace PrinterClub.WinForms
             // Row: chief/contact/ext
             txtChief = T();
             txtContactPerson = T();
-            AddRow(L("負責人 chief"), txtChief, L("聯絡人 contact_person"), txtContactPerson);
+            AddRow(L("負責人"), txtChief, L("聯絡人"), txtContactPerson);
 
             txtExtension = T();
-            AddRow(L("分機 extension"), txtExtension, L("E-mail email"), txtEmail = T());
+            AddRow(L("分機"), txtExtension, L("E-mail"), txtEmail = T());
 
             // Row: tel/fax
             txtCTel = T();
             txtFTel = T();
-            AddRow(L("公司電話 c_tel"), txtCTel, L("工廠電話 f_tel"), txtFTel);
+            AddRow(L("公司電話"), txtCTel, L("工廠電話"), txtFTel);
 
             txtCFax = T();
             txtFFax = T();
-            AddRow(L("傳真-公司 c_fax"), txtCFax, L("傳真-工廠 f_fax"), txtFFax);
+            AddRow(L("傳真-公司"), txtCFax, L("傳真-工廠"), txtFFax);
 
             // Row: products
             txtMainProduct = T();
-            AddRow(L("主要產品 main_product"), txtMainProduct, L(""), new Label { AutoSize = true });
+            AddRow(L("主要產品"), txtMainProduct, L(""), new Label { AutoSize = true });
 
             // Row: equipment (big)
             txtEquipmentText = T(multiline: true, height: 180);
@@ -236,7 +236,7 @@ namespace PrinterClub.WinForms
             int rEq = form.RowCount;
             form.RowCount += 1;
             form.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            form.Controls.Add(L("機器設備 equipment_text"), 0, rEq);
+            form.Controls.Add(L("機器設備"), 0, rEq);
             form.Controls.Add(txtEquipmentText, 1, rEq);
             form.SetColumnSpan(txtEquipmentText, 3);
 

@@ -32,6 +32,11 @@ namespace PrinterClub.WinForms
         private Button btnRCompanyEdit;
         private Button btnRCompanyDelete;
         private Button btnRCompanyPrint;
+        private readonly string menberNumberString = "會籍編號";
+        private readonly string companyString = "公司名稱";
+        private readonly string taxIDString = "統一編號";
+        private readonly string joinDateString = "加入日期";
+
 
         public Form1()
         {
@@ -51,8 +56,8 @@ namespace PrinterClub.WinForms
                 Dock = DockStyle.Fill
             };
 
-            var tabCompanies = new TabPage("Companies（會員）");
-            var tabRCompanies = new TabPage("RCompanies（名冊/其他）");
+            var tabCompanies = new TabPage("會員資料管理");
+            var tabRCompanies = new TabPage("相關廠商及學校管理");
 
             tabMain.TabPages.Add(tabCompanies);
             tabMain.TabPages.Add(tabRCompanies);
@@ -75,14 +80,14 @@ namespace PrinterClub.WinForms
             // 上半部：查詢條件
             var grpSearch = new GroupBox
             {
-                Text = "查詢條件（Companies）",
+                Text = "查詢",
                 Dock = DockStyle.Top,
                 Height = 95
             };
 
             var lblNumber = new Label
             {
-                Text = "number（精準）",
+                Text = menberNumberString,
                 AutoSize = true,
                 Location = new Point(12, 28)
             };
@@ -96,7 +101,7 @@ namespace PrinterClub.WinForms
 
             var lblName = new Label
             {
-                Text = "cname（模糊）",
+                Text = companyString,
                 AutoSize = true,
                 Location = new Point(300, 28)
             };
@@ -131,7 +136,7 @@ namespace PrinterClub.WinForms
             {
                 txtCompanyNumber.Text = "";
                 txtCompanyName.Text = "";
-                // TODO: 你之後接資料庫後，這裡也可以刷新列表
+                DoCompanySearch();
             };
 
             grpSearch.Controls.Add(lblNumber);
@@ -153,50 +158,13 @@ namespace PrinterClub.WinForms
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
             };
 
-            // 先放假欄位（之後接 DB 再換）
-            dgvCompanies.Columns.Add("number", "number");
-            dgvCompanies.Columns.Add("cname", "cname");
-            dgvCompanies.Columns.Add("tax_id", "tax_id");
-            dgvCompanies.Columns.Add("join_date", "join_date");
+            dgvCompanies.Columns.Add(menberNumberString, menberNumberString);
+            dgvCompanies.Columns.Add(companyString, companyString);
+            dgvCompanies.Columns.Add(taxIDString, taxIDString);
+            dgvCompanies.Columns.Add(joinDateString, joinDateString);
             dgvCompanies.CellDoubleClick += (s, e) =>
             {
-                if (e.RowIndex < 0) return; // header
-                btnCompanyEdit.PerformClick(); // 直接沿用修改的流程（先 View）
-            };
-
-
-            // 下半部：按鈕列
-            var pnlActions = new Panel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 48
-            };
-
-            btnCompanyAdd = new Button { Text = "新增", Width = 90, Location = new Point(10, 10) };
-            btnCompanyEdit = new Button { Text = "修改", Width = 90, Location = new Point(110, 10) };
-            btnCompanyDelete = new Button { Text = "刪除", Width = 90, Location = new Point(210, 10) };
-            btnCompanyPrint = new Button { Text = "列印", Width = 90, Location = new Point(310, 10) };
-
-            // 先接 placeholder
-            btnCompanyAdd.Click += (s, e) =>
-            {
-                try
-                {
-                    using var f = new CompanyDetailForm(null, DetailFormMode.New);
-                    var r = f.ShowDialog(this);
-                    if (r != DialogResult.OK || f.Result == null || f.IsDeleted) return;
-
-                    _companyRepo.Insert(f.Result);
-                    DoCompanySearch(); // 重新查詢刷新（會依目前搜尋條件）
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(ex.Message, "新增失敗", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            };
-
-            btnCompanyEdit.Click += (s, e) =>
-            {
+                if (e.RowIndex < 0) return;
                 try
                 {
                     var selected = GetSelectedCompany();
@@ -206,7 +174,6 @@ namespace PrinterClub.WinForms
                         return;
                     }
 
-                    // 重新從 DB 讀完整資料（避免列表欄位太少）
                     var full = _companyRepo.GetByNumber(selected.Number);
                     if (full == null)
                     {
@@ -233,6 +200,35 @@ namespace PrinterClub.WinForms
                 catch (Exception ex)
                 {
                     MessageBox.Show(ex.Message, "修改/刪除失敗", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
+
+            // 下半部：按鈕列
+            var pnlActions = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 48
+            };
+
+            btnCompanyAdd = new Button { Text = "新增", Width = 90, Location = new Point(10, 10) };
+            btnCompanyDelete = new Button { Text = "刪除", Width = 90, Location = new Point(110, 10) };
+            btnCompanyPrint = new Button { Text = "列印", Width = 90, Location = new Point(210, 10) };
+
+            // 先接 placeholder
+            btnCompanyAdd.Click += (s, e) =>
+            {
+                try
+                {
+                    using var f = new CompanyDetailForm(null, DetailFormMode.New);
+                    var r = f.ShowDialog(this);
+                    if (r != DialogResult.OK || f.Result == null || f.IsDeleted) return;
+
+                    _companyRepo.Insert(f.Result);
+                    DoCompanySearch(); // 重新查詢刷新（會依目前搜尋條件）
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "新增失敗", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             };
 
@@ -264,7 +260,6 @@ namespace PrinterClub.WinForms
             btnCompanyPrint.Click += (s, e) => MessageBox.Show("TODO: 列印 Companies");
 
             pnlActions.Controls.Add(btnCompanyAdd);
-            pnlActions.Controls.Add(btnCompanyEdit);
             pnlActions.Controls.Add(btnCompanyDelete);
             pnlActions.Controls.Add(btnCompanyPrint);
 
@@ -411,7 +406,6 @@ namespace PrinterClub.WinForms
             return _companyLastQuery[idx];
         }
 
-        // ===== Placeholder search handlers (UI 拉皮先做行為規則) =====
         private void DoCompanySearch()
         {
             try
@@ -419,7 +413,6 @@ namespace PrinterClub.WinForms
                 var number = (txtCompanyNumber.Text ?? "").Trim();
                 var cname = (txtCompanyName.Text ?? "").Trim();
 
-                // 規則：若同時輸入，優先 number
                 if (!string.IsNullOrEmpty(number))
                 {
                     var list = _companyRepo.Search(number, "", 200);
@@ -459,38 +452,5 @@ namespace PrinterClub.WinForms
                 MessageBox.Show("TODO: 不帶條件 -> 列出前 N 筆 RCompanies（或全部）");
             }
         }
-
-        private void OpenCompanyDetailView(CompanyLite company)
-        {
-            using var f = new CompanyDetailForm(company, DetailFormMode.View);
-            var r = f.ShowDialog(this);
-
-            if (r == DialogResult.OK)
-            {
-                if (f.IsDeleted)
-                {
-                    // TODO: delete by f.Result.Number
-                }
-                else if (f.Result != null)
-                {
-                    // 若你允許 View 直接刪/或 View 先按修改再存，這裡會拿到更新後資料
-                    // TODO: update f.Result
-                }
-
-                // TODO: refresh grid
-            }
-        }
-        private void OpenCompanyDetailNew()
-        {
-            using var f = new CompanyDetailForm(null, DetailFormMode.New);
-            var r = f.ShowDialog(this);
-
-            if (r == DialogResult.OK && f.Result != null && !f.IsDeleted)
-            {
-                // TODO: insert f.Result (number unique)
-                // TODO: refresh grid
-            }
-        }
-
     }
 }
