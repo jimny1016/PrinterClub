@@ -28,7 +28,7 @@ internal sealed class MemberCertRenderer
         float Y(float cm) => cm * 10f + _opt.OffsetYmm;
 
         // A) 會籍編號（橫排）
-        DrawText(g, font16, brush, d.Number, X(16.0f), Y(5.3f));
+        DrawColRotated(g, font16, brush, d.Number, X(16.0f), Y(5.3f));
 
         // B) 公司名稱（直排，最多兩行）
         DrawColRotated(g, font18, brush, d.CName, X(4.8f), Y(9.5f), stepMm: 6f, maxCharsPerCol: 12);
@@ -38,7 +38,7 @@ internal sealed class MemberCertRenderer
         DrawColRotated(g, font18, brush, who, X(9.8f), Y(14.4f), stepMm: 6f);
 
         // D) 工廠地址（直排，數字不旋轉）
-        DrawAddressDigitsNotRotated(g, font16, brush, d.FAddress, X(9.8f), Y(16.8f), stepMm: 6f);
+        DrawColRotated(g, font16, brush, d.FAddress, X(9.8f), Y(16.8f), stepMm: 6f);
 
         // E) 資本額（直排，10 字換行）
         DrawColRotated(g, font16, brush, d.Money, X(12.6f), Y(19.3f), stepMm: 6f, maxCharsPerCol: 10);
@@ -53,8 +53,8 @@ internal sealed class MemberCertRenderer
         // G) 會員證書有效日期（使用者輸入，阿拉伯數字）
         var (vy, vm, vd) = DateParts.TryParseRocOrIso(d.CertValidDate);
         DrawColRotated(g, font12, brush, vy.ToString(), X(14.6f), Y(27.8f), stepMm: 4.8f);
-        DrawColRotated(g, font12, brush, vm.ToString(), X(16.2f), Y(27.6f), stepMm: 4.8f);
-        DrawColRotated(g, font12, brush, vd.ToString(), X(17.6f), Y(27.6f), stepMm: 4.8f);
+        DrawColRotated(g, font12, brush, vm.ToString(), X(16.2f), Y(27.8f), stepMm: 4.8f);
+        DrawColRotated(g, font12, brush, vd.ToString(), X(17.6f), Y(27.8f), stepMm: 4.8f);
     }
 
     // ===== helpers =====
@@ -161,42 +161,46 @@ internal sealed class MemberCertRenderer
     {
         if (string.IsNullOrWhiteSpace(text)) return;
 
+        // 建議先做簡單清洗，避免控制字元造成 glyph/driver 問題
+        text = SanitizeText(text);
+
         var state = g.Save();
         try
         {
             ThrowIfInvalid(g, x, y, "DrawAddress(before)");
 
+            // 進入直排座標系
             g.TranslateTransform(x, y);
             g.RotateTransform(-90f);
 
             ThrowIfInvalid(g, 0, 0, "DrawAddress(after)");
 
-            float yy = 0;
+            float yy = 0f;
 
             foreach (var ch in text)
             {
-                if (char.IsDigit(ch) || ch == '-')
+                bool isDigitLike = char.IsDigit(ch) || ch == '-' || ch == '－';
+
+                if (isDigitLike)
                 {
-                    // ✅ 不要 ResetTransform：用巢狀 Save/Restore 做局部「回到原始座標系」來畫
+                    // 在直排座標系的 (0, yy) 局部轉回橫向
                     var s2 = g.Save();
                     try
                     {
-                        // 回到進入函數前的世界座標（也就是沒旋轉的狀態）
-                        g.Restore(state);     // 暫時回到外層 state（未旋轉）
-                        ThrowIfInvalid(g, x + yy, y, "DrawAddress(digit)");
-                        g.DrawString(ch.ToString(), f, b, x + yy, y);
+                        g.TranslateTransform(0f, yy);
+                        g.RotateTransform(90f);
+
+                        ThrowIfInvalid(g, 0, 0, "DrawAddress(digit.draw)");
+                        g.DrawString(ch.ToString(), f, b, 0f, 0f);
                     }
                     finally
                     {
-                        // 再把狀態切回旋轉狀態繼續畫後面的字
-                        // 注意：Restore(state) 把狀態回到外層 state，所以這裡要重新套回旋轉
-                        // 最安全做法：直接恢復到 s2 的狀態
                         g.Restore(s2);
                     }
                 }
                 else
                 {
-                    ThrowIfInvalid(g, 0, yy, "DrawAddress(char)");
+                    ThrowIfInvalid(g, 0, yy, "DrawAddress(char.draw)");
                     g.DrawString(ch.ToString(), f, b, 0f, yy);
                 }
 
@@ -207,5 +211,15 @@ internal sealed class MemberCertRenderer
         {
             g.Restore(state);
         }
+    }
+
+    private static string SanitizeText(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        // 去控制字元
+        var filtered = new string(s.Where(ch => !char.IsControl(ch)).ToArray());
+        // 常見字元正規化
+        filtered = filtered.Replace('　', ' ').Replace('－', '-');
+        return filtered;
     }
 }
