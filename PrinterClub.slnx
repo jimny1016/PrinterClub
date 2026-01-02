@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="PrinterClub.Data/PrinterClub.Data.csproj" Id="3b413159-232f-42de-9e93-860eaa44d204" />
+  <Project Path="PrinterClub.Printing/PrinterClub.Printing.csproj" Id="10a90aab-d65e-4228-b7fc-91eb69463f63" />
   <Project Path="PrinterClub.WinForms/PrinterClub.WinForms.csproj" Id="bc5f8685-629f-4c33-9151-10d5930a51f6" />
   <Project Path="Transferred/Transferred.csproj" />
 </Solution>
