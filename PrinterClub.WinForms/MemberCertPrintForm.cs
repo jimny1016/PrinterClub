@@ -213,7 +213,7 @@ namespace PrinterClub.WinForms
                 PaperHeightMm = 297
             };
 
-            var doc = MemberCertBatchPrintDocumentFactory.Create(items, opt);
+            using var doc = MemberCertBatchPrintDocumentFactory.Create(items, opt);
             doc.Print();
 
             AppendLog("✅ 已送出列印工作");

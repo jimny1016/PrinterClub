@@ -13,6 +13,7 @@ internal sealed class MemberCertBatchPrintDocument : PrintDocument
         IList<MemberCertPrintData> items,
         PrintOptions opt)
     {
+        PrintController = new StandardPrintController();
         _items = items;
         _renderer = new MemberCertRenderer(opt);
 
