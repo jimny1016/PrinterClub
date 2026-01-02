@@ -247,23 +247,42 @@ namespace PrinterClub.WinForms
                 }
             };
 
-            btnCompanyPrint.Text = "列印比價證明書";
+            btnCompanyPrint = new Button { Text = "列印比價證明書", Width = 140, Location = new Point(210, 10) };
+            var btnMemberCertPrint = new Button { Text = "列印會員證書", Width = 140, Location = new Point(360, 10) };
+
             btnCompanyPrint.Click += (s, e) =>
             {
                 try
                 {
-                    // 預設範圍：用目前選取那筆（方便使用者快速印單筆）
                     var selected = GetSelectedCompany();
                     var def = selected?.Number ?? "";
-
                     using var f = new BidProvePrintForm(_companyRepo, def, def);
                     f.ShowDialog(this);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "開啟列印視窗失敗", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(ex.Message, "開啟列印比價證明書視窗失敗", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             };
+
+            btnMemberCertPrint.Click += (s, e) =>
+            {
+                try
+                {
+                    var selected = GetSelectedCompany();
+                    var def = selected?.Number ?? "";
+                    using var f = new MemberCertPrintForm(_companyRepo, def, def);
+                    f.ShowDialog(this);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "開啟列印會員證書視窗失敗", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
+
+
+            pnlActions.Controls.Add(btnCompanyPrint);
+            pnlActions.Controls.Add(btnMemberCertPrint);
 
             pnlActions.Controls.Add(btnCompanyAdd);
             pnlActions.Controls.Add(btnCompanyDelete);

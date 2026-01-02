@@ -13,4 +13,8 @@
     <ProjectReference Include="..\PrinterClub.Printing\PrinterClub.Printing.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Update="MemberCertPrintForm.cs" />
+  </ItemGroup>
+
 </Project>
