@@ -29,7 +29,7 @@ internal sealed class BidProveRenderer
         DrawCol(g, font, brush, d.CName, X(14.3f), Y(8.3f));
 
         // 2) 會籍編號（旋轉直排）
-        DrawColRotated90(g, font, brush, d.Number, X(19.3f), Y(23.0f));
+        DrawCol(g, font, brush, d.Number, X(19.3f), Y(23.0f));
 
         // 3) 比價證明書有效日期（民國年/月/日）
         var (vy, vm, vd) = DateParts.TryParseRocOrIso(d.ProveValidDate);
@@ -51,8 +51,8 @@ internal sealed class BidProveRenderer
         DrawCol(g, font, brush, who, X(12.0f), Y(8.3f));
 
         // 7) 工廠登記 字/號
-        DrawColRotated90(g, font, brush, d.FactoryRegPrefix, X(10.0f), Y(13.0f));
-        DrawColRotated90(g, font, brush, d.FactoryRegNo, X(10.0f), Y(15.2f));
+        DrawCol(g, font, brush, d.FactoryRegPrefix, X(10.0f), Y(13.0f));
+        DrawCol(g, font, brush, d.FactoryRegNo, X(10.0f), Y(15.2f));
 
         // 8) 資本額
         DrawCol(g, font, brush, d.Money, X(8.4f), Y(10.7f));
@@ -89,23 +89,6 @@ internal sealed class BidProveRenderer
             var half = ch is '-' or '_' or '.' or '(' or ')';
             g.DrawString(ch.ToString(), font, brush, xMm, y);
             y += half ? step * 0.5f : step;
-        }
-    }
-
-    private static void DrawColRotated90(Graphics g, Font font, Brush brush, string text, float xMm, float yMm)
-    {
-        if (string.IsNullOrEmpty(text)) return;
-
-        var state = g.Save();
-        try
-        {
-            g.TranslateTransform(xMm, yMm);
-            g.RotateTransform(90f);
-            DrawCol(g, font, brush, text, 0, 0);
-        }
-        finally
-        {
-            g.Restore(state);
         }
     }
 
