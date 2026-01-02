@@ -338,7 +338,7 @@ namespace PrinterClub.WinForms
             txtFAddress.Text = _model.FAddress;
             txtTaxId.Text = _model.TaxId;
             txtMoney.Text = _model.Money;
-            txtArea.Text = _model.Area;
+            txtArea.Text = _model.AreaClass;
 
             txtCompanyRegDate.Text = _model.CompanyRegDate;
             txtCompanyRegPrefix.Text = _model.CompanyRegPrefix;
@@ -378,7 +378,7 @@ namespace PrinterClub.WinForms
                 FAddress = (txtFAddress.Text ?? "").Trim(),
                 TaxId = (txtTaxId.Text ?? "").Trim(),
                 Money = (txtMoney.Text ?? "").Trim(),
-                Area = (txtArea.Text ?? "").Trim(),
+                AreaClass = (txtArea.Text ?? "").Trim(),
 
                 CompanyRegDate = (txtCompanyRegDate.Text ?? "").Trim(),
                 CompanyRegPrefix = (txtCompanyRegPrefix.Text ?? "").Trim(),
