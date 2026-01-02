@@ -45,4 +45,5 @@
     public string VDate2 { get; set; } = "";  // 會員證書有效日期（會籍證明書）
     public string Title { get; set; } = "";
     public string Sex { get; set; } = ""; // M/F
+    public string ReDate { get; set; } = "";
 }

@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Printing;
-using System.Linq;
-using System.Windows.Forms;
+﻿using System.Drawing.Printing;
 using PrinterClub.Data;
 using PrinterClub.Printing;
 
@@ -248,15 +243,15 @@ namespace PrinterClub.WinForms
                 return;
             }
 
-            // 日期可空=今天；可支援民國/西元
-            DateTime printDate = DateTime.Now;
+            // ✅ 舊系統收據列印日：不給使用者輸入，直接今天
+            var printDate = DateTime.Today;
 
             var newFee = (int)nudNewFee.Value;
 
             try
             {
                 AppendLog($"載入範圍：{from} ~ {to}");
-                AppendLog($"起訖年月：{startYm} ~ {endYm}");
+                AppendLog($"起訖年月（只列印顯示用，不影響金額）：{startYm} ~ {endYm}");
                 AppendLog($"號：{receiptNo}");
                 AppendLog($"列印日：{printDate:yyyy-MM-dd}（ROC={printDate.Year - 1911}）");
                 AppendLog($"新入會費(同批共用)：{newFee}");
@@ -269,7 +264,9 @@ namespace PrinterClub.WinForms
                     return;
                 }
 
-                int skipped = 0;
+                int skippedIncomplete = 0;
+                int skippedExpired = 0;
+                int skippedMoneyInvalid = 0;
 
                 foreach (var lite in lites)
                 {
@@ -279,24 +276,39 @@ namespace PrinterClub.WinForms
                     var cname = (full.CName ?? "").Trim();
                     if (string.IsNullOrWhiteSpace(number) || string.IsNullOrWhiteSpace(cname))
                     {
-                        skipped++;
+                        skippedIncomplete++;
                         AppendLog($"- 跳過：資料不完整 number/cname（{lite.Number}）");
                         continue;
                     }
 
-                    // 取 money / area_class（你要確保 Repository SELECT 有撈 area_class）
-                    var moneyText = GetPropString(full, "Money");
-                    var areaClass = GetPropString(full, "AreaClass");
+                    var reDateText = (full.ReDate ?? "").Trim();
+                    if (!string.IsNullOrEmpty(reDateText))
+                    {
+                        var reDate = ParseRocOrIsoDateToDateTime(reDateText); // 你已經有類似的 parser
+                        if (reDate.Date > printDate.Date)
+                        {
+                            skippedExpired++;
+                            AppendLog($"- 跳過：已過期（re_date={reDateText}） {number} {cname}");
+                            continue;
+                        }
+                    }
 
-                    // ✅ 舊系統常見篩選：money 解析不到就不印（避免亂算）
-                    var annual = ReceiptFeeCalculator.CalcAnnualFeeFromMoney(moneyText);
-                    var periodFee = ReceiptFeeCalculator.CalcPeriodFee(annual, startYm, endYm);
+                    // ✅ 年會費：完全照 Java 門檻，不算期間倍數
+                    var moneyText = (full.Money ?? "").Trim();
+                    if (!long.TryParse(moneyText, out var money))
+                    {
+                        skippedMoneyInvalid++;
+                        AppendLog($"- 跳過：money 無法解析（money={moneyText}） {number} {cname}");
+                        continue;
+                    }
+
+                    var annualFee = CalcAnnualFeeLikeJava(money); // 下面我也給你
 
                     _prepared.Add(new ReceiptPrintData
                     {
                         Number = number,
                         CName = cname,
-                        AreaClass = areaClass ?? "",
+                        AreaClass = (full.AreaClass ?? "").Trim(),
 
                         ReceiptNo = receiptNo,
                         PrintDate = printDate,
@@ -304,17 +316,17 @@ namespace PrinterClub.WinForms
                         StartYm = startYm,
                         EndYm = endYm,
 
-                        Fee = periodFee,          // ✅ 自動算
-                        NewJoinFee = newFee       // ✅ 使用者輸入
+                        Fee = annualFee,     // ✅ 就是年會費
+                        NewJoinFee = newFee  // ✅ 使用者輸入
                     });
 
-                    AppendLog($"- {number} {cname} | money={moneyText} | 年會費={annual} | 期間會費={periodFee} | 新入會費={newFee} | 合計={periodFee + newFee}");
+                    AppendLog($"- {number} {cname} | money={money} | 年會費={annualFee} | 新入會費={newFee} | 合計={annualFee + newFee}");
                 }
 
-                AppendLog($"✅ 清單載入完成：可列印 {_prepared.Count} 筆，跳過 {skipped} 筆。");
+                AppendLog($"✅ 清單載入完成：可列印 {_prepared.Count} 筆。跳過：過期 {skippedExpired}、money異常 {skippedMoneyInvalid}、資料不完整 {skippedIncomplete}");
                 if (_prepared.Count == 0)
                 {
-                    MessageBox.Show("全部資料都被篩選掉，請檢查 money/年月/資料完整性。", "結果", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("全部資料都被篩選掉（過期/money/資料不完整）。", "結果", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -327,11 +339,12 @@ namespace PrinterClub.WinForms
             }
         }
 
-        private static string? GetPropString(object obj, string propName)
+        private static int CalcAnnualFeeLikeJava(long money)
         {
-            var p = obj.GetType().GetProperty(propName);
-            if (p == null) return null;
-            return Convert.ToString(p.GetValue(obj));
+            if (money <= 10_000_000) return 3000;
+            if (money <= 30_000_000) return 5000;
+            if (money <= 100_000_000) return 7000;
+            return 10000;
         }
 
         private void DoPrint()

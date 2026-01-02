@@ -109,7 +109,8 @@ SELECT
   area_class,
   equipment_text,
   v_date,
-  v_date2
+  v_date2,
+  re_date
 FROM companies
 WHERE cname LIKE @cname
 ORDER BY number
@@ -152,7 +153,8 @@ SELECT
   area_class,
   equipment_text,
   v_date,
-  v_date2
+  v_date2,
+  re_date
 FROM companies
 ORDER BY number
 LIMIT @limit;";
@@ -209,7 +211,8 @@ SELECT
   area_class,
   equipment_text,
   v_date,
-  v_date2
+  v_date2,
+  re_date
 FROM companies
 WHERE number = @number
 LIMIT 1;";
@@ -262,7 +265,8 @@ SELECT
   area_class,
   v_date,
   v_date2,
-  equipment_text
+  equipment_text,
+  re_date
 FROM companies
 WHERE number >= @from AND number <= @to
 ORDER BY number
@@ -530,6 +534,7 @@ WHERE number=@number;";
                 VDate2 = S("v_date2"),
                 Title = S("title"),
                 Sex = S("sex"),
+                ReDate = S("re_date")
             };
         }
 
