@@ -44,8 +44,8 @@ namespace PrinterClub.Printing
             // ===== C) 會籍編號 + 所在地區別 =====
             // number： (0.79,0.40)
             // area_class： (5.73,0.40)
-            DrawText(g, font, brush, d.Number, X(0.79f), Y(0.40f));
-            DrawText(g, font, brush, d.AreaClass, X(5.73f), Y(0.40f));
+            DrawText(g, font, brush, d.Number, X(4.74f), Y(4.45f));
+            DrawText(g, font, brush, d.AreaClass, X(10.67f), Y(4.45f));
 
             // ===== D) 起訖年月 + 會費 =====
             // 起始年月（年/月）：(4.74,8.10) / (6.22,8.10)

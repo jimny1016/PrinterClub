@@ -18,12 +18,10 @@ namespace PrinterClub.WinForms
         private TextBox txtFrom;
         private TextBox txtTo;
 
-        private TextBox txtReceiptDate;     // 列印日期（可空->今天）
         private TextBox txtReceiptNo;       // 右上角「號」
         private TextBox txtStartYm;
         private TextBox txtEndYm;
 
-        private NumericUpDown nudFee;
         private NumericUpDown nudNewFee;
 
         private NumericUpDown nudOffsetX;
@@ -36,6 +34,7 @@ namespace PrinterClub.WinForms
         private TextBox txtLog;
 
         private List<CompanyLite> _selected = new();
+        private List<ReceiptPrintData> _prepared = new();
 
         public ReceiptPrintForm(CompanyRepository repo, string? defaultFrom = null, string? defaultTo = null)
         {
@@ -102,15 +101,8 @@ namespace PrinterClub.WinForms
             left.Controls.Add(txtTo);
             y += 40;
 
-            // Receipt date
-            left.Controls.Add(L("列印日期(可空=今天)"));
-            txtReceiptDate = T(180);
-            txtReceiptDate.PlaceholderText = "例：114.01.02 或 2026-01-02";
-            left.Controls.Add(txtReceiptDate);
-            y += 34;
-
             // Receipt No
-            left.Controls.Add(L("號（右上角）"));
+            left.Controls.Add(L("號"));
             txtReceiptNo = T(180);
             left.Controls.Add(txtReceiptNo);
             y += 40;
@@ -127,20 +119,6 @@ namespace PrinterClub.WinForms
             txtEndYm.PlaceholderText = "例：107.12";
             left.Controls.Add(txtEndYm);
             y += 40;
-
-            // Fee
-            left.Controls.Add(L("會費"));
-            nudFee = new NumericUpDown
-            {
-                Left = 170,
-                Top = y,
-                Width = 140,
-                Minimum = 0,
-                Maximum = 100000000,
-                Increment = 100
-            };
-            left.Controls.Add(nudFee);
-            y += 34;
 
             // New fee
             left.Controls.Add(L("新入會費"));
@@ -243,7 +221,8 @@ namespace PrinterClub.WinForms
 
         private void LoadSelection()
         {
-            btnPrint.Visible = false; // ✅ 重新載入前先藏起來
+            btnPrint.Visible = false;
+            _prepared.Clear();
 
             var from = (txtFrom.Text ?? "").Trim();
             var to = (txtTo.Text ?? "").Trim();
@@ -254,7 +233,13 @@ namespace PrinterClub.WinForms
                 return;
             }
 
-            // 基本輸入檢查（不要等到 Print 才爆）
+            var receiptNo = (txtReceiptNo.Text ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(receiptNo))
+            {
+                MessageBox.Show("請輸入右上角「號」。", "輸入檢查", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             var startYm = (txtStartYm.Text ?? "").Trim();
             var endYm = (txtEndYm.Text ?? "").Trim();
             if (string.IsNullOrWhiteSpace(startYm) || string.IsNullOrWhiteSpace(endYm))
@@ -263,28 +248,77 @@ namespace PrinterClub.WinForms
                 return;
             }
 
+            // 日期可空=今天；可支援民國/西元
+            DateTime printDate = DateTime.Now;
+
+            var newFee = (int)nudNewFee.Value;
+
             try
             {
                 AppendLog($"載入範圍：{from} ~ {to}");
+                AppendLog($"起訖年月：{startYm} ~ {endYm}");
+                AppendLog($"號：{receiptNo}");
+                AppendLog($"列印日：{printDate:yyyy-MM-dd}（ROC={printDate.Year - 1911}）");
+                AppendLog($"新入會費(同批共用)：{newFee}");
 
-                // 你已經有 SearchByNumberRange（之前比價書就用它）
-                _selected = _repo.SearchByNumberRange(from, to, 5000);
-
-                if (_selected.Count == 0)
+                var lites = _repo.SearchByNumberRange(from, to, 5000);
+                if (lites.Count == 0)
                 {
                     AppendLog("查無資料。");
                     MessageBox.Show("此範圍查無資料。", "結果", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
-                AppendLog($"選取筆數：{_selected.Count}");
-                AppendLog("清單：");
-                foreach (var c in _selected)
-                    AppendLog($"- {c.Number}  {c.CName}");
+                int skipped = 0;
 
-                AppendLog("✅ 清單載入完成。若要列印請按「開始列印」。");
+                foreach (var lite in lites)
+                {
+                    var full = _repo.GetByNumber(lite.Number) ?? lite;
 
-                btnPrint.Visible = true; // ✅ 只有載入成功才顯示
+                    var number = (full.Number ?? "").Trim();
+                    var cname = (full.CName ?? "").Trim();
+                    if (string.IsNullOrWhiteSpace(number) || string.IsNullOrWhiteSpace(cname))
+                    {
+                        skipped++;
+                        AppendLog($"- 跳過：資料不完整 number/cname（{lite.Number}）");
+                        continue;
+                    }
+
+                    // 取 money / area_class（你要確保 Repository SELECT 有撈 area_class）
+                    var moneyText = GetPropString(full, "Money");
+                    var areaClass = GetPropString(full, "AreaClass");
+
+                    // ✅ 舊系統常見篩選：money 解析不到就不印（避免亂算）
+                    var annual = ReceiptFeeCalculator.CalcAnnualFeeFromMoney(moneyText);
+                    var periodFee = ReceiptFeeCalculator.CalcPeriodFee(annual, startYm, endYm);
+
+                    _prepared.Add(new ReceiptPrintData
+                    {
+                        Number = number,
+                        CName = cname,
+                        AreaClass = areaClass ?? "",
+
+                        ReceiptNo = receiptNo,
+                        PrintDate = printDate,
+
+                        StartYm = startYm,
+                        EndYm = endYm,
+
+                        Fee = periodFee,          // ✅ 自動算
+                        NewJoinFee = newFee       // ✅ 使用者輸入
+                    });
+
+                    AppendLog($"- {number} {cname} | money={moneyText} | 年會費={annual} | 期間會費={periodFee} | 新入會費={newFee} | 合計={periodFee + newFee}");
+                }
+
+                AppendLog($"✅ 清單載入完成：可列印 {_prepared.Count} 筆，跳過 {skipped} 筆。");
+                if (_prepared.Count == 0)
+                {
+                    MessageBox.Show("全部資料都被篩選掉，請檢查 money/年月/資料完整性。", "結果", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                btnPrint.Visible = true;
             }
             catch (Exception ex)
             {
@@ -293,9 +327,16 @@ namespace PrinterClub.WinForms
             }
         }
 
+        private static string? GetPropString(object obj, string propName)
+        {
+            var p = obj.GetType().GetProperty(propName);
+            if (p == null) return null;
+            return Convert.ToString(p.GetValue(obj));
+        }
+
         private void DoPrint()
         {
-            if (_selected == null || _selected.Count == 0)
+            if (_prepared == null || _prepared.Count == 0)
             {
                 MessageBox.Show("請先按「載入清單」確認要列印的會員。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 btnPrint.Visible = false;
@@ -309,70 +350,17 @@ namespace PrinterClub.WinForms
                 return;
             }
 
-            var receiptNo = (txtReceiptNo.Text ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(receiptNo))
-            {
-                MessageBox.Show("請輸入右上角「號」。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            var startYm = (txtStartYm.Text ?? "").Trim();
-            var endYm = (txtEndYm.Text ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(startYm) || string.IsNullOrWhiteSpace(endYm))
-            {
-                MessageBox.Show("請輸入起始年月與結束年月。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // 日期可空=今天；可支援民國/西元
-            DateTime printDate = DateTime.Now;
-            var dateText = (txtReceiptDate.Text ?? "").Trim();
-            if (!string.IsNullOrWhiteSpace(dateText))
-            {
-                // 如果你 Printing 已有 DateParts.TryParseRocOrIso(string) 回 (y,m,d)
-                // 這裡用簡單解析：民國/西元皆可
-                printDate = ParseRocOrIsoDateToDateTime(dateText);
-            }
-
             try
             {
-                var fee = (int)nudFee.Value;
-                var newFee = (int)nudNewFee.Value;
-
-                var items = new List<ReceiptPrintData>(_selected.Count);
-
-                foreach (var lite in _selected)
-                {
-                    // 收據需要 area_class（你的 CompanyLite 目前沒有）
-                    // 所以建議抓 full（確保有 area_class），若你 GetByNumber 目前 select 不含 area_class，就要補欄位
-                    var full = _repo.GetByNumber(lite.Number) ?? lite;
-
-                    items.Add(new ReceiptPrintData
-                    {
-                        Number = full.Number,
-                        CName = full.CName,
-                        AreaClass = GetAreaClass(full), // 下面有 fallback
-
-                        ReceiptNo = receiptNo,
-                        PrintDate = printDate,
-
-                        StartYm = startYm,
-                        EndYm = endYm,
-
-                        Fee = fee,
-                        NewJoinFee = newFee
-                    });
-                }
-
                 var options = new PrintOptions
                 {
                     PrinterName = printerName,
                     OffsetXmm = (float)nudOffsetX.Value,
                     OffsetYmm = (float)nudOffsetY.Value,
 
-                    // 收據紙：14cm x 24cm
-                    PaperWidthMm = 140f,
-                    PaperHeightMm = 240f,
+                    // ✅ 收據橫式：24cm x 14cm
+                    PaperWidthMm = 240f,
+                    PaperHeightMm = 140f,
 
                     FontName = "標楷體",
                     FontSizePt = 12f,
@@ -381,20 +369,16 @@ namespace PrinterClub.WinForms
                 AppendLog("==================================");
                 AppendLog("送出列印工作：收據");
                 AppendLog($"印表機：{printerName}");
-                AppendLog($"日期：{printDate:yyyy-MM-dd}（ROC={printDate.Year - 1911}）");
-                AppendLog($"號：{receiptNo}");
-                AppendLog($"起訖年月：{startYm} ~ {endYm}");
-                AppendLog($"會費：{fee}，新入會費：{newFee}，合計：{fee + newFee}");
                 AppendLog($"Offset：X={options.OffsetXmm}mm, Y={options.OffsetYmm}mm");
-                AppendLog($"筆數：{items.Count}");
+                AppendLog($"筆數：{_prepared.Count}");
 
-                var doc = ReceiptBatchPrintDocumentFactory.Create(items, options);
+                var doc = ReceiptBatchPrintDocumentFactory.Create(_prepared, options);
                 doc.Print();
 
                 AppendLog("✅ 已送出列印工作（Spool）。");
 
-                // ✅ 列印後清空並藏起列印按鈕，避免使用者以為還是同一批
-                _selected.Clear();
+                // ✅ 列印後清空
+                _prepared.Clear();
                 btnPrint.Visible = false;
             }
             catch (Exception ex)

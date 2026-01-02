@@ -25,6 +25,7 @@ namespace PrinterClub.Printing
             // 注意：PrintDocument 的 PaperSize 是 1/100 inch
             var paper = options.CreatePaperSize("Receipt-14x24cm", options.PaperWidthMm, options.PaperHeightMm);
             doc.DefaultPageSettings.PaperSize = paper;
+            doc.DefaultPageSettings.Landscape = false;
 
             // 讓 driver 不要自己縮放（你之前已經在其他文件用得很順）
             doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
