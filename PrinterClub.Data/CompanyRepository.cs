@@ -338,7 +338,8 @@ INSERT INTO companies (
   classify,
   area_class,
   equipment_text,
-  updated_at
+  updated_at,
+  re_date
 ) VALUES (
   @number,
   @cname,
@@ -368,7 +369,8 @@ INSERT INTO companies (
   @classify,
   @area_class,
   @equipment_text,
-  @updated_at
+  @updated_at,
+  @re_date
 );";
 
             BindParams(cmd, model);
@@ -416,7 +418,8 @@ UPDATE companies SET
   classify=@classify,
   area_class=@area_class,
   equipment_text=@equipment_text,
-  updated_at=@updated_at
+  updated_at=@updated_at,
+  re_date=@re_date
 WHERE number=@number;";
 
             BindParams(cmd, model);
@@ -484,6 +487,8 @@ WHERE number=@number;";
             cmd.Parameters.AddWithValue("@area_class", (m.AreaClass ?? "").Trim());
 
             cmd.Parameters.AddWithValue("@equipment_text", (m.EquipmentText ?? "").Trim());
+
+            cmd.Parameters.AddWithValue("@re_date", (m.ReDate ?? "").Trim());
         }
 
         private static CompanyLite ReadCompany(SqliteDataReader r)

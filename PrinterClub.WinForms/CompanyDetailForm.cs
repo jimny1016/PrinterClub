@@ -35,7 +35,7 @@ namespace PrinterClub.WinForms
         private TextBox txtMainProduct, txtEquipmentText, txtApplyDate;
 
         private Button btnEdit, btnSave, btnCancelEdit, btnDelete, btnClose;
-        private TextBox txtVDate, txtVDate2;
+        private TextBox txtVDate, txtVDate2, txtReDate;
 
         public CompanyDetailForm(CompanyLite? company, DetailFormMode mode)
         {
@@ -249,6 +249,8 @@ namespace PrinterClub.WinForms
             txtVDate = T();
             txtVDate2 = T();
             AddRow2(L("比價證明書有效日期"), txtVDate, L("會籍證明書有效日期"), txtVDate2);
+            txtReDate = T();
+            AddRow2(L("收據結束日期"), txtReDate, L(""), new Label { AutoSize = true });
 
             // equipment (big) span
             txtEquipmentText = T(multiline: true, height: 200);
@@ -325,6 +327,7 @@ namespace PrinterClub.WinForms
             Set(txtMainProduct);
             Set(txtEquipmentText);
             Set(txtApplyDate);
+            Set(txtReDate);
         }
 
         private void LoadModelToUi()
@@ -362,6 +365,7 @@ namespace PrinterClub.WinForms
 
             txtVDate.Text = _model.VDate;
             txtVDate2.Text = _model.VDate2;
+            txtReDate.Text = _model.ReDate;
         }
 
         private CompanyLite ReadUiToModel()
@@ -401,6 +405,7 @@ namespace PrinterClub.WinForms
 
                 VDate = _model.VDate,
                 VDate2 = _model.VDate2,
+                ReDate = (txtReDate.Text ?? "").Trim()
             };
         }
 
