@@ -35,6 +35,7 @@ namespace PrinterClub.WinForms
         private TextBox txtMainProduct, txtEquipmentText, txtApplyDate;
 
         private Button btnEdit, btnSave, btnCancelEdit, btnDelete, btnClose;
+        private TextBox txtVDate, txtVDate2;
 
         public CompanyDetailForm(CompanyLite? company, DetailFormMode mode)
         {
@@ -127,12 +128,12 @@ namespace PrinterClub.WinForms
                 ColumnCount = 6
             };
 
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));  // label
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));  // label
             form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34));   // input
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));  // label(small)
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16));   // input(small)
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));  // label(small)
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16));   // input(small)
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));  // label(small)
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 17));   // input(small)
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));  // label(small)
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 17));   // input(small)
 
             scroll.Controls.Add(form);
 
@@ -192,7 +193,7 @@ namespace PrinterClub.WinForms
             // Row: number / apply date
             txtNumber = T();
             txtApplyDate = T();
-            AddRow2(L("會籍編號 *"), txtNumber, L("日期（年/月/日）"), txtApplyDate);
+            AddRow2(L("會籍編號 *"), txtNumber, L("日期"), txtApplyDate);
 
             // Row: company name / area
             txtCName = T();
@@ -243,7 +244,11 @@ namespace PrinterClub.WinForms
 
             // Row: products
             txtMainProduct = T();
-            AddRow2(L("主要產品"), txtMainProduct, L(""), new Label { AutoSize = true });
+            AddRow2(L("主要產品"), txtMainProduct, L(""), new Label { AutoSize = true }); 
+            
+            txtVDate = T();
+            txtVDate2 = T();
+            AddRow2(L("比價證明書有效日期"), txtVDate, L("會籍證明書有效日期"), txtVDate2);
 
             // equipment (big) span
             txtEquipmentText = T(multiline: true, height: 200);
@@ -277,6 +282,9 @@ namespace PrinterClub.WinForms
             btnCancelEdit.Visible = !isView;
             btnDelete.Visible = !isNew;
             btnDelete.Enabled = isView || isEdit;
+
+            txtVDate.ReadOnly = true;
+            txtVDate2.ReadOnly = true;
 
             if (isView)
             {
@@ -351,6 +359,9 @@ namespace PrinterClub.WinForms
             txtEquipmentText.Text = _model.EquipmentText;
 
             txtApplyDate.Text = _model.ApplyDate;
+
+            txtVDate.Text = _model.VDate;
+            txtVDate2.Text = _model.VDate2;
         }
 
         private CompanyLite ReadUiToModel()
@@ -387,6 +398,9 @@ namespace PrinterClub.WinForms
                 EquipmentText = (txtEquipmentText.Text ?? "").Trim(),
 
                 ApplyDate = (txtApplyDate.Text ?? "").Trim(),
+
+                VDate = _model.VDate,
+                VDate2 = _model.VDate2,
             };
         }
 

@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 
 namespace PrinterClub.Data
 {
@@ -66,7 +63,9 @@ SELECT
   http,
   classify,
   area_class,
-  equipment_text
+  equipment_text,
+  v_date,
+  v_date2
 FROM companies
 WHERE number = @number
 LIMIT @limit;";
@@ -104,7 +103,9 @@ SELECT
   http,
   classify,
   area_class,
-  equipment_text
+  equipment_text,
+  v_date,
+  v_date2
 FROM companies
 WHERE cname LIKE @cname
 ORDER BY number
@@ -143,7 +144,9 @@ SELECT
   http,
   classify,
   area_class,
-  equipment_text
+  equipment_text,
+  v_date,
+  v_date2
 FROM companies
 ORDER BY number
 LIMIT @limit;";
@@ -196,7 +199,9 @@ SELECT
   http,
   classify,
   area_class,
-  equipment_text
+  equipment_text,
+  v_date,
+  v_date2
 FROM companies
 WHERE number = @number
 LIMIT 1;";
@@ -453,6 +458,8 @@ WHERE number=@number;";
                 AreaClass = S("area_class"),
 
                 EquipmentText = S("equipment_text"),
+                VDate = S("v_date"),
+                VDate2 = S("v_date2"),
             };
         }
 

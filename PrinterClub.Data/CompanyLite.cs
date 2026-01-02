@@ -39,4 +39,8 @@
     public string AreaClass { get; set; } = "";
 
     public string EquipmentText { get; set; } = "";
+
+    public string VDate { get; set; } = "";   // 證明書有效日期（比價證明書）
+
+    public string VDate2 { get; set; } = "";  // 會員證書有效日期（會籍證明書）
 }
