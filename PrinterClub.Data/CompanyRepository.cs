@@ -554,5 +554,69 @@ WHERE number=@number;";
 
             return path1;
         }
+        // ========================
+        // Print Updates (v_date / v_date2)
+        // ========================
+
+        public int UpdateVDateForNumbers(IEnumerable<string> numbers, string vDateText)
+        {
+            return UpdateSingleTextColumnForNumbers(numbers, "v_date", vDateText);
+        }
+
+        public int UpdateVDate2ForNumbers(IEnumerable<string> numbers, string vDate2Text)
+        {
+            return UpdateSingleTextColumnForNumbers(numbers, "v_date2", vDate2Text);
+        }
+
+        /// <summary>
+        /// 批量更新 companies 某個文字欄位（只允許白名單欄位），並同步 updated_at
+        /// 回傳實際更新筆數
+        /// </summary>
+        private int UpdateSingleTextColumnForNumbers(IEnumerable<string> numbers, string columnName, string valueText)
+        {
+            if (numbers == null) throw new ArgumentNullException(nameof(numbers));
+
+            // ✅ 安全：只允許更新這兩個欄位，避免 SQL injection（因為 columnName 會被拼到 SQL）
+            if (!string.Equals(columnName, "v_date", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(columnName, "v_date2", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"不允許更新欄位：{columnName}");
+
+            var list = numbers
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (list.Count == 0) return 0;
+
+            using var conn = Open();
+            using var tx = conn.BeginTransaction();
+
+            int total = 0;
+
+            // ✅ 走逐筆 UPDATE：最穩、最不挑 SQLite 參數限制
+            //（如果你一次會印幾千筆，之後我再幫你改成 temp table/IN chunk）
+            foreach (var no in list)
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.Transaction = tx;
+
+                cmd.CommandText = $@"
+UPDATE companies
+SET {columnName} = @val,
+    updated_at = @updated_at
+WHERE number = @number;";
+
+                cmd.Parameters.AddWithValue("@val", (valueText ?? "").Trim());
+                cmd.Parameters.AddWithValue("@updated_at", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                cmd.Parameters.AddWithValue("@number", no);
+
+                total += cmd.ExecuteNonQuery();
+            }
+
+            tx.Commit();
+            return total;
+        }
+
     }
 }

@@ -324,6 +324,22 @@ namespace PrinterClub.WinForms
 
                 AppendLog("✅ 已送出列印工作（Spool）。");
 
+                // ✅ 列印工作成功送出後，批量回寫 v_date（比價證明書有效日期）
+                try
+                {
+                    var updated = _repo.UpdateVDateForNumbers(
+                        items.Select(x => x.Number),
+                        validDate // 使用者輸入的比價證明書有效日期
+                    );
+
+                    AppendLog($"✅ 已更新 v_date（比價證明書有效日期）：{updated} 筆");
+                }
+                catch (Exception ex2)
+                {
+                    // 這裡不要讓列印流程失敗，改成提示即可
+                    AppendLog("⚠️ 列印已送出，但更新 v_date 失敗：" + ex2.Message);
+                }
+
                 // ✅ 你要的：按下開始列印後，清空選取並隱藏按鈕
                 ClearSelectionAndHidePrint(silent: false);
             }

@@ -12,6 +12,7 @@ public static class BidProveBatchPrintDocumentFactory
         if (options == null) throw new ArgumentNullException(nameof(options));
 
         var doc = new PrintDocument();
+        doc.PrintController = new StandardPrintController();
 
         doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
         doc.DefaultPageSettings.PaperSize = PaperSizeHelper.FromMillimeters(

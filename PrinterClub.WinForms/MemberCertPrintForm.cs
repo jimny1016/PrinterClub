@@ -179,6 +179,13 @@ namespace PrinterClub.WinForms
         {
             if (_selected.Count == 0) return;
 
+            var validDate = (txtValidDate.Text ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(validDate))
+            {
+                MessageBox.Show("請輸入比價證明書有效日期（例：107.12.31）。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             var items = new List<MemberCertPrintData>();
             foreach (var c in _selected)
             {
@@ -192,7 +199,7 @@ namespace PrinterClub.WinForms
                     Sex = full.Sex,
                     FAddress = full.FAddress,
                     Money = full.Money,
-                    CertValidDate = txtValidDate.Text.Trim(),
+                    CertValidDate = validDate,
                     PrintDate = DateTime.Now
                 });
             }
@@ -210,6 +217,22 @@ namespace PrinterClub.WinForms
             doc.Print();
 
             AppendLog("✅ 已送出列印工作");
+
+            // ✅ 列印工作成功送出後，批量回寫 v_date2（會員證書有效日期）
+            try
+            {
+                var updated = _repo.UpdateVDate2ForNumbers(
+                    items.Select(x => x.Number),
+                    validDate // 使用者輸入的會員證書有效日期
+                );
+
+                AppendLog($"✅ 已更新 v_date2（會員證書有效日期）：{updated} 筆");
+            }
+            catch (Exception ex2)
+            {
+                AppendLog("⚠️ 列印已送出，但更新 v_date2 失敗：" + ex2.Message);
+            }
+
             _selected.Clear();
             HidePrintUntilLoaded();
         }
