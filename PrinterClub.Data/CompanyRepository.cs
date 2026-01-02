@@ -56,6 +56,8 @@ SELECT
   f_tel,
   f_fax,
   chief,
+  title,
+  sex,
   contact_person,
   extension,
   main_product,
@@ -96,6 +98,8 @@ SELECT
   f_tel,
   f_fax,
   chief,
+  title,
+  sex,
   contact_person,
   extension,
   main_product,
@@ -137,6 +141,8 @@ SELECT
   f_tel,
   f_fax,
   chief,
+  title,
+  sex,
   contact_person,
   extension,
   main_product,
@@ -192,6 +198,8 @@ SELECT
   f_tel,
   f_fax,
   chief,
+  title,
+  sex,
   contact_person,
   extension,
   main_product,
@@ -210,6 +218,66 @@ LIMIT 1;";
             using var reader = cmd.ExecuteReader();
             if (!reader.Read()) return null;
             return ReadCompany(reader);
+        }
+        public List<CompanyLite> SearchByNumberRange(string fromNumber, string toNumber, int limit = 2000)
+        {
+            fromNumber = (fromNumber ?? "").Trim();
+            toNumber = (toNumber ?? "").Trim();
+            if (string.IsNullOrEmpty(fromNumber) || string.IsNullOrEmpty(toNumber))
+                throw new InvalidOperationException("範圍查詢需要起訖會籍編號。");
+
+            using var conn = Open();
+            using var cmd = conn.CreateCommand();
+
+            cmd.CommandText = @"
+SELECT
+  number,
+  cname,
+  ename,
+  c_address,
+  f_address,
+  tax_id,
+  money,
+  area,
+  company_reg_date,
+  company_reg_prefix,
+  company_reg_no,
+  factory_reg_date,
+  factory_reg_prefix,
+  factory_reg_no,
+  join_date,
+  c_tel,
+  c_fax,
+  f_tel,
+  f_fax,
+  chief,
+  title,
+  sex,
+  contact_person,
+  extension,
+  main_product,
+  email,
+  http,
+  classify,
+  area_class,
+  v_date,
+  v_date2,
+  equipment_text
+FROM companies
+WHERE number >= @from AND number <= @to
+ORDER BY number
+LIMIT @limit;";
+
+            cmd.Parameters.AddWithValue("@from", fromNumber);
+            cmd.Parameters.AddWithValue("@to", toNumber);
+            cmd.Parameters.AddWithValue("@limit", limit);
+
+            var list = new List<CompanyLite>();
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                list.Add(ReadCompany(reader));
+
+            return list;
         }
 
         // ========================
@@ -460,6 +528,8 @@ WHERE number=@number;";
                 EquipmentText = S("equipment_text"),
                 VDate = S("v_date"),
                 VDate2 = S("v_date2"),
+                Title = S("title"),
+                Sex = S("sex"),
             };
         }
 

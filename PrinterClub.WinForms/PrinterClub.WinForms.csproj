@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PrinterClub.Data\PrinterClub.Data.csproj" />
+    <ProjectReference Include="..\PrinterClub.Printing\PrinterClub.Printing.csproj" />
   </ItemGroup>
 
 </Project>

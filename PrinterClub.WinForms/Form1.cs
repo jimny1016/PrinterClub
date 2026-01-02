@@ -247,7 +247,23 @@ namespace PrinterClub.WinForms
                 }
             };
 
-            btnCompanyPrint.Click += (s, e) => MessageBox.Show("TODO: 列印（會員申請表）");
+            btnCompanyPrint.Text = "列印比價證明書";
+            btnCompanyPrint.Click += (s, e) =>
+            {
+                try
+                {
+                    // 預設範圍：用目前選取那筆（方便使用者快速印單筆）
+                    var selected = GetSelectedCompany();
+                    var def = selected?.Number ?? "";
+
+                    using var f = new BidProvePrintForm(_companyRepo, def, def);
+                    f.ShowDialog(this);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "開啟列印視窗失敗", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
 
             pnlActions.Controls.Add(btnCompanyAdd);
             pnlActions.Controls.Add(btnCompanyDelete);
