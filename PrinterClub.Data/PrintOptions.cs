@@ -1,4 +1,6 @@
-﻿namespace PrinterClub.Data;
+﻿using System.Drawing.Printing;
+
+namespace PrinterClub.Data;
 
 public sealed class PrintOptions
 {
@@ -19,4 +21,16 @@ public sealed class PrintOptions
     // 字型（可讓呼叫端覆蓋）
     public string FontName { get; set; } = "標楷體";
     public float FontSizePt { get; set; } = 12f;
+    public PaperSize CreatePaperSize(string name, float widthMm, float heightMm)
+    {
+        int w = MmToHundredthInch(widthMm);
+        int h = MmToHundredthInch(heightMm);
+        return new PaperSize(name, w, h);
+    }
+
+    private static int MmToHundredthInch(float mm)
+    {
+        // 1 inch = 25.4 mm; PaperSize 單位 1/100 inch
+        return (int)System.Math.Round(mm / 25.4f * 100f);
+    }
 }

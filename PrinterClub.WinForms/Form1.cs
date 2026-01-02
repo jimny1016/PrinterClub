@@ -20,7 +20,6 @@ namespace PrinterClub.WinForms
         private DataGridView dgvCompanies;
         private Button btnCompanyAdd;
         private Button btnCompanyDelete;
-        private Button btnCompanyPrint;
 
         // RCompanies tab controls
         private TextBox txtRCompanyCode;
@@ -203,7 +202,6 @@ namespace PrinterClub.WinForms
 
             btnCompanyAdd = new Button { Text = "新增", Width = 90, Location = new Point(10, 10) };
             btnCompanyDelete = new Button { Text = "刪除", Width = 90, Location = new Point(110, 10) };
-            btnCompanyPrint = new Button { Text = "列印", Width = 90, Location = new Point(210, 10) };
 
             btnCompanyAdd.Click += (s, e) =>
             {
@@ -247,8 +245,9 @@ namespace PrinterClub.WinForms
                 }
             };
 
-            btnCompanyPrint = new Button { Text = "列印比價證明書", Width = 140, Location = new Point(210, 10) };
+            var btnCompanyPrint = new Button { Text = "列印比價證明書", Width = 140, Location = new Point(210, 10) };
             var btnMemberCertPrint = new Button { Text = "列印會員證書", Width = 140, Location = new Point(360, 10) };
+            var btnReceiptPrint = new Button { Text = "列印收據", Width = 140, Location = new Point(510, 10) };
 
             btnCompanyPrint.Click += (s, e) =>
             {
@@ -280,13 +279,29 @@ namespace PrinterClub.WinForms
                 }
             };
 
+            btnReceiptPrint.Click += (s, e) =>
+            {
+                try
+                {
+                    // 預設帶入目前選取的會員編號（起迄都同一個）
+                    var selected = GetSelectedCompany();
+                    var from = selected?.Number ?? "";
+                    var to = selected?.Number ?? "";
+                    using var f = new ReceiptPrintForm(_companyRepo, from, to);
+                    f.ShowDialog(this);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "開啟收據列印失敗", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
 
             pnlActions.Controls.Add(btnCompanyPrint);
             pnlActions.Controls.Add(btnMemberCertPrint);
+            pnlActions.Controls.Add(btnReceiptPrint);
 
             pnlActions.Controls.Add(btnCompanyAdd);
             pnlActions.Controls.Add(btnCompanyDelete);
-            pnlActions.Controls.Add(btnCompanyPrint);
 
             page.Controls.Add(dgvCompanies);
             page.Controls.Add(pnlActions);
