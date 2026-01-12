@@ -167,7 +167,14 @@ LIMIT @limit;";
             {
                 list.Add(ReadCompany(reader));
             }
-            return list;
+            return list
+    .OrderByDescending(c =>
+    {
+        if (int.TryParse(c.Number, out var n))
+            return n;
+        return int.MinValue; // 非純數字排最後
+    })
+    .ToList();
         }
 
         public CompanyLite? GetByNumber(string number)

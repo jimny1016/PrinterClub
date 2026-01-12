@@ -63,8 +63,8 @@ namespace PrinterClub.WinForms
             _rcompanyRepo = new RCompanyRepository(CompanyRepository.ResolveDefaultDbPath());
 
             // 初次載入：列出前 N 筆
-            LoadCompaniesToGrid(_companyRepo.Search("", "", 200));
-            LoadRCompaniesToGrid(_rcompanyRepo.Search("", "", 200));
+            LoadCompaniesToGrid(_companyRepo.Search("", "", 2000));
+            LoadRCompaniesToGrid(_rcompanyRepo.Search("", "", 2000));
         }
 
         private void BuildCompaniesTab(TabPage page)
