@@ -156,7 +156,7 @@ SELECT
   v_date2,
   re_date
 FROM companies
-ORDER BY number
+ORDER BY number DESC
 LIMIT @limit;";
                 cmd.Parameters.AddWithValue("@limit", limit);
             }

@@ -29,18 +29,12 @@ namespace PrinterClub.WinForms
         private DataGridView dgvRCompanies;
         private Button btnRCompanyAdd;
         private Button btnRCompanyDelete;
-        private Button btnRCompanyPrint;
 
         // ====== UI 顯示字串（中文即可）======
         private readonly string menberNumberString = "會籍編號";
         private readonly string companyString = "公司名稱";
         private readonly string taxIDString = "統一編號";
         private readonly string joinDateString = "加入日期";
-
-        private readonly string rCodeString = "代碼";
-        private readonly string rNameString = "名稱";
-        private readonly string rChiefString = "聯絡人";
-        private readonly string rZipString = "郵遞區號";
 
         public Form1()
         {
@@ -445,7 +439,6 @@ namespace PrinterClub.WinForms
 
             btnRCompanyAdd = new Button { Text = "新增", Width = 90, Location = new Point(10, 10) };
             btnRCompanyDelete = new Button { Text = "刪除", Width = 90, Location = new Point(110, 10) };
-            btnRCompanyPrint = new Button { Text = "列印", Width = 90, Location = new Point(210, 10) };
 
             btnRCompanyAdd.Click += (s, e) =>
             {
@@ -489,11 +482,8 @@ namespace PrinterClub.WinForms
                 }
             };
 
-            btnRCompanyPrint.Click += (s, e) => MessageBox.Show("TODO: 列印（相關廠商/學校）");
-
             pnlActions.Controls.Add(btnRCompanyAdd);
             pnlActions.Controls.Add(btnRCompanyDelete);
-            pnlActions.Controls.Add(btnRCompanyPrint);
 
             page.Controls.Add(dgvRCompanies);
             page.Controls.Add(pnlActions);
