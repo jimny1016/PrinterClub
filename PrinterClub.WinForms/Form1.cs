@@ -519,12 +519,12 @@ namespace PrinterClub.WinForms
 
                 if (!string.IsNullOrEmpty(number))
                 {
-                    var list = _companyRepo.Search(number, "", 200);
+                    var list = _companyRepo.Search(number, "", 2000);
                     LoadCompaniesToGrid(list);
                     return;
                 }
 
-                var result = _companyRepo.Search("", cname, 200);
+                var result = _companyRepo.Search("", cname, 2000);
                 LoadCompaniesToGrid(result);
             }
             catch (Exception ex)
