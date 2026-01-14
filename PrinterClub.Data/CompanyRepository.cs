@@ -67,7 +67,8 @@ SELECT
   area_class,
   equipment_text,
   v_date,
-  v_date2
+  v_date2,
+  re_date
 FROM companies
 WHERE number = @number
 LIMIT @limit;";
