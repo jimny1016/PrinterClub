@@ -345,10 +345,10 @@ namespace PrinterClub.WinForms
             }
             catch (Exception ex)
             {
-                AppendLog("❌ 列印失敗：" + ex.Message);
-                MessageBox.Show(ex.Message, "列印失敗", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                AppendLog("❌ 列印失敗：");
+                AppendLog(ex.ToString()); // ← 一定要 ToString()
+                MessageBox.Show(ex.ToString(), "列印失敗", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
-                // 失敗也清掉，避免「以為還能再按一次就好」造成混亂
                 ClearSelectionAndHidePrint(silent: false);
             }
         }
