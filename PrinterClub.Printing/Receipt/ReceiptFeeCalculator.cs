@@ -2,7 +2,7 @@
 using System.Globalization;
 using System.Linq;
 
-namespace PrinterClub.Printing
+namespace PrinterClub.Printing.Receipt
 {
     public static class ReceiptFeeCalculator
     {

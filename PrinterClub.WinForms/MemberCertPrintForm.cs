@@ -4,7 +4,7 @@ using System.Drawing;
 using System.Drawing.Printing;
 using System.Windows.Forms;
 using PrinterClub.Data;
-using PrinterClub.Printing;
+using PrinterClub.Printing.MemberCert;
 
 namespace PrinterClub.WinForms
 {

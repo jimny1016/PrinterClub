@@ -41,7 +41,7 @@ namespace PrinterClub.WinForms
             Text = "PrinterClub - 會員資料管理";
             StartPosition = FormStartPosition.CenterScreen;
 
-            ClientSize = new Size(800, 600);
+            ClientSize = new Size(840, 600);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             MinimizeBox = true;
@@ -242,6 +242,7 @@ namespace PrinterClub.WinForms
             var btnCompanyPrint = new Button { Text = "列印比價證明書", Width = 140, Location = new Point(210, 10) };
             var btnMemberCertPrint = new Button { Text = "列印會員證書", Width = 140, Location = new Point(360, 10) };
             var btnReceiptPrint = new Button { Text = "列印收據", Width = 140, Location = new Point(510, 10) };
+            var btnLabelPrint = new Button { Text = "列印貼紙", Width = 140, Location = new Point(660, 10) };
 
             btnCompanyPrint.Click += (s, e) =>
             {
@@ -290,9 +291,28 @@ namespace PrinterClub.WinForms
                 }
             };
 
+            btnLabelPrint.Click += (s, e) =>
+            {
+                try
+                {
+                    // 預設帶入目前選取的會員編號（起迄都同一個）
+                    var selected = GetSelectedCompany();
+                    var from = selected?.Number ?? "";
+                    var to = selected?.Number ?? "";
+
+                    using var f = new CompanyLabelPrintForm(_companyRepo, from, to);
+                    f.ShowDialog(this);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "開啟貼紙列印失敗", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
+
             pnlActions.Controls.Add(btnCompanyPrint);
             pnlActions.Controls.Add(btnMemberCertPrint);
             pnlActions.Controls.Add(btnReceiptPrint);
+            pnlActions.Controls.Add(btnLabelPrint);
 
             pnlActions.Controls.Add(btnCompanyAdd);
             pnlActions.Controls.Add(btnCompanyDelete);

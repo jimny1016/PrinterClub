@@ -5,7 +5,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
 
-namespace PrinterClub.Printing;
+namespace PrinterClub.Printing.MemberCert;
 
 internal sealed class MemberCertRenderer : IDisposable
 {

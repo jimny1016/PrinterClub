@@ -1,6 +1,7 @@
 ﻿using System.Drawing.Printing;
 using PrinterClub.Data;
 using PrinterClub.Printing;
+using PrinterClub.Printing.Receipt;
 
 namespace PrinterClub.WinForms
 {

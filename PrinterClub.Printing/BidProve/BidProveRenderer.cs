@@ -4,7 +4,7 @@ using System.Drawing;
 using System.Drawing.Text;
 using System.Linq;
 
-namespace PrinterClub.Printing;
+namespace PrinterClub.Printing.BidProve;
 
 internal sealed class BidProveRenderer
 {

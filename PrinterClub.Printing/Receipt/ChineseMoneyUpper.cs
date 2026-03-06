@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text;
 
-namespace PrinterClub.Printing
+namespace PrinterClub.Printing.Receipt
 {
     internal static class ChineseMoneyUpper
     {

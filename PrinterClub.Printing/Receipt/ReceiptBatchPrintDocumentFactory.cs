@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing.Printing;
 
-namespace PrinterClub.Printing
+namespace PrinterClub.Printing.Receipt
 {
     public static class ReceiptBatchPrintDocumentFactory
     {

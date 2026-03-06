@@ -1,7 +1,7 @@
 ﻿using PrinterClub.Data;
 using System.Drawing.Printing;
 
-namespace PrinterClub.Printing;
+namespace PrinterClub.Printing.MemberCert;
 
 public static class MemberCertBatchPrintDocumentFactory
 {

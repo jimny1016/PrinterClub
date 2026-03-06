@@ -6,7 +6,7 @@ using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Linq;
 
-namespace PrinterClub.Printing
+namespace PrinterClub.Printing.Receipt
 {
     internal sealed class ReceiptRenderer : IDisposable
     {

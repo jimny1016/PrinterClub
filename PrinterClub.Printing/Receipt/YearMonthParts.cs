@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text.RegularExpressions;
 
-namespace PrinterClub.Printing
+namespace PrinterClub.Printing.Receipt
 {
     internal static class YearMonthParts
     {
