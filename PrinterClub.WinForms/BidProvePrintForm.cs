@@ -319,7 +319,7 @@ namespace PrinterClub.WinForms
                 AppendLog($"Offset：X={options.OffsetXmm}mm, Y={options.OffsetYmm}mm");
                 AppendLog($"筆數：{items.Count}");
 
-                var doc = BidProveBatchPrintDocumentFactory.Create(items, options);
+                using var doc = BidProveBatchPrintDocumentFactory.Create(items, options);
                 doc.Print();
 
                 AppendLog("✅ 已送出列印工作（Spool）。");

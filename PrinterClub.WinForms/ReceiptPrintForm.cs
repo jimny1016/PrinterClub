@@ -385,7 +385,7 @@ namespace PrinterClub.WinForms
                 AppendLog($"Offset：X={options.OffsetXmm}mm, Y={options.OffsetYmm}mm");
                 AppendLog($"筆數：{_prepared.Count}");
 
-                var doc = ReceiptBatchPrintDocumentFactory.Create(_prepared, options);
+                using var doc = ReceiptBatchPrintDocumentFactory.Create(_prepared, options);
                 doc.Print();
 
                 AppendLog("✅ 已送出列印工作（Spool）。");
