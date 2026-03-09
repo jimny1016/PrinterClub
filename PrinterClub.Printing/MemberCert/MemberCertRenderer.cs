@@ -89,7 +89,7 @@ internal sealed class MemberCertRenderer : IDisposable
         // 地址  y:-4
         DrawTateText_Rightward(
             g, font16, brush, NormalizeAddressForVertical(d.FAddress),
-            MmToPxX(76f),
+            MmToPxX(72f),
             MmToPxY(141.5f),
             StepPxX(6f), ColShiftPxY(6f, 2f), int.MaxValue
         );
@@ -107,7 +107,7 @@ internal sealed class MemberCertRenderer : IDisposable
         var roc = p.Year - 1911;
 
         DrawTateText_Rightward(
-            g, font18, brush, ChineseNumerals.Translate(roc),
+            g, font18, brush, ToChineseYearDigits(roc),
             MmToPxX(65.5f),
             MmToPxY(239.5f),
             StepPxX(6f), ColShiftPxY(6f, 2f), int.MaxValue
@@ -132,21 +132,21 @@ internal sealed class MemberCertRenderer : IDisposable
 
         DrawTateText_Rightward(
             g, font12, brush, vy.ToString(),
-            MmToPxX(124.5f),
+            MmToPxX(123.5f),
             MmToPxY(253.5f),
             StepPxX(4.8f), ColShiftPxY(4.8f, 2f), int.MaxValue
         );
 
         DrawTateText_Rightward(
             g, font12, brush, vm.ToString(),
-            MmToPxX(142.5f),
+            MmToPxX(141.5f),
             MmToPxY(253.5f),
             StepPxX(4.8f), ColShiftPxY(4.8f, 2f), int.MaxValue
         );
 
         DrawTateText_Rightward(
             g, font12, brush, vd.ToString(),
-            MmToPxX(156.5f),
+            MmToPxX(155.5f),
             MmToPxY(253.5f),
             StepPxX(4.8f), ColShiftPxY(4.8f, 2f), int.MaxValue
         );
@@ -276,6 +276,55 @@ internal sealed class MemberCertRenderer : IDisposable
         var bmp = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
         bmp.SetResolution(dpiX, dpiY);
         return bmp;
+    }
+
+    private static string ToChineseYearDigits(int year)
+    {
+        if (year == 0) return "零";
+
+        if (year < 0)
+            year = Math.Abs(year);
+
+        // 民國三位數年份：115 -> 一一五、107 -> 一零七
+        if (year >= 100)
+        {
+            var digits = year.ToString();
+            var map = new[] { '零', '一', '二', '三', '四', '五', '六', '七', '八', '九' };
+            var sb = new StringBuilder(digits.Length);
+
+            foreach (var ch in digits)
+            {
+                if (ch >= '0' && ch <= '9')
+                    sb.Append(map[ch - '0']);
+            }
+
+            return sb.ToString();
+        }
+
+        // 兩位數 / 一位數年份：71 -> 七十一
+        return ToChineseNumberUnder100(year);
+    }
+
+    private static string ToChineseNumberUnder100(int value)
+    {
+        string[] map = { "零", "一", "二", "三", "四", "五", "六", "七", "八", "九" };
+
+        if (value < 10)
+            return map[value];
+
+        if (value == 10)
+            return "十";
+
+        if (value < 20)
+            return "十" + map[value % 10];
+
+        int tens = value / 10;
+        int ones = value % 10;
+
+        if (ones == 0)
+            return map[tens] + "十";
+
+        return map[tens] + "十" + map[ones];
     }
 
     private static string ToChineseMoneyUpper(string raw)

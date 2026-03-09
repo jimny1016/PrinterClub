@@ -38,13 +38,13 @@ internal sealed class BidProveRenderer
 
         // 比價有效日期
         var (vy, vm, vd) = DateParts.TryParseRocOrIso(d.ProveValidDate);
-        DrawCol(g, font, brush, ChineseNumerals.Translate(vy), 155.5f, 95f, "比價有效年");
+        DrawCol(g, font, brush, ToChineseYearDigits(vy), 155.5f, 95f, "比價有效年");
         DrawCol(g, font, brush, ChineseNumerals.Translate(vm), 155.5f, 128f, "比價有效月");
         DrawCol(g, font, brush, ChineseNumerals.Translate(vd), 155.5f, 157f, "比價有效日");
 
         // 入會日期
         var (jy, jm, jd) = DateParts.TryParseRocOrIso(d.JoinOrCDate);
-        DrawCol(g, font, brush, ChineseNumerals.Translate(jy), 131.5f, 76f, "入會年");
+        DrawCol(g, font, brush, ToChineseYearDigits(jy), 131.5f, 76f, "入會年");
         DrawCol(g, font, brush, ChineseNumerals.Translate(jm), 131.5f, 105f, "入會月");
         DrawCol(g, font, brush, ChineseNumerals.Translate(jd), 131.5f, 127f, "入會日");
 
@@ -68,7 +68,7 @@ internal sealed class BidProveRenderer
         // 列印日期
         var p = d.PrintDate;
         var rocYear = p.Year - 1911;
-        DrawCol(g, font, brush, ChineseNumerals.Translate(rocYear), 13.5f, 45f, "列印年");
+        DrawCol(g, font, brush, ToChineseYearDigits(rocYear), 13.5f, 45f, "列印年");
         DrawCol(g, font, brush, ChineseNumerals.Translate(p.Month), 13.5f, 84f, "列印月");
         DrawCol(g, font, brush, ChineseNumerals.Translate(p.Day), 13.5f, 114f, "列印日");
     }
@@ -201,6 +201,55 @@ internal sealed class BidProveRenderer
         }
 
         return sb.ToString();
+    }
+
+    private static string ToChineseYearDigits(int year)
+    {
+        if (year == 0) return "零";
+
+        if (year < 0)
+            year = Math.Abs(year);
+
+        // 民國三位數年份：115 -> 一一五、107 -> 一零七
+        if (year >= 100)
+        {
+            var digits = year.ToString();
+            var map = new[] { '零', '一', '二', '三', '四', '五', '六', '七', '八', '九' };
+            var sb = new StringBuilder(digits.Length);
+
+            foreach (var ch in digits)
+            {
+                if (ch >= '0' && ch <= '9')
+                    sb.Append(map[ch - '0']);
+            }
+
+            return sb.ToString();
+        }
+
+        // 兩位數 / 一位數年份：71 -> 七十一
+        return ToChineseNumberUnder100(year);
+    }
+
+    private static string ToChineseNumberUnder100(int value)
+    {
+        string[] map = { "零", "一", "二", "三", "四", "五", "六", "七", "八", "九" };
+
+        if (value < 10)
+            return map[value];
+
+        if (value == 10)
+            return "十";
+
+        if (value < 20)
+            return "十" + map[value % 10];
+
+        int tens = value / 10;
+        int ones = value % 10;
+
+        if (ones == 0)
+            return map[tens] + "十";
+
+        return map[tens] + "十" + map[ones];
     }
 
     private static string ToChineseMoneyUpper(string raw)
