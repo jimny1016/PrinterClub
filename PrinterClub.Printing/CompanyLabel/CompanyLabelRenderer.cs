@@ -14,13 +14,14 @@ namespace PrinterClub.Printing
         private readonly Dictionary<string, Bitmap> _glyphCache = new();
         private bool _disposed;
 
-        // 舊 Java drawcol_r 是 -90 度，這裡沿用你前面驗證較穩的 270
+        // 你目前已驗證方向是對的，先維持
         private const RotateFlipType GLYPH_ROTATE = RotateFlipType.Rotate270FlipNone;
 
-        // 依舊 Java 推測，這份是「字往右寫，換欄往下」
+        // 目前仍維持這個方向
         private const bool COLUMN_DIRECTION_UP = false;
 
         // 全域微調（mm）
+        // 若之後整塊還要再整體微調，可先動這兩個
         private const float GLOBAL_X_ADJUST_MM = 0f;
         private const float GLOBAL_Y_ADJUST_MM = 0f;
 
@@ -47,7 +48,7 @@ namespace PrinterClub.Printing
             if (_disposed)
                 throw new ObjectDisposedException(nameof(CompanyLabelRenderer));
 
-            g.ResetTransform();
+            // 不要 ResetTransform，否則會把外部 HardMargin 補償洗掉
             g.PageUnit = GraphicsUnit.Pixel;
             g.PageScale = 1f;
             g.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
@@ -63,55 +64,61 @@ namespace PrinterClub.Printing
             float Xmm(float cm) => cm * 10f + _opt.OffsetXmm + GLOBAL_X_ADJUST_MM;
             float Ymm(float cm) => cm * 10f + _opt.OffsetYmm + GLOBAL_Y_ADJUST_MM;
 
-            float Xpx(float cm) => Xmm(cm) * mmToPxX;
-            float Ypx(float cm) => Ymm(cm) * mmToPxY;
+            float Xpx(float cm, float adjustMm = 0f) => (Xmm(cm) + adjustMm) * mmToPxX;
+            float Ypx(float cm, float adjustMm = 0f) => (Ymm(cm) + adjustMm) * mmToPxY;
 
             float StepPxX(float stepMm) => stepMm * mmToPxX;
-            float ColShiftPxY(float stepMm, float factor = 2f) => (stepMm * factor) * mmToPxY;
+            float ColShiftPxY(float stepMm, float factor = 1.15f) => (stepMm * factor) * mmToPxY;
 
-            // ===== 版面初版（依 PrintM.java 推理）
-            // 這些座標是「先做出一版可印」，你到客戶現場微調 Offset 或直接微修這裡即可
+            string address = NormalizeAddressForVerticalPrint(d.AddressToPrint);
 
-            // A) 地區（橫排）
-            DrawTextBitmap(g, font12, brush, d.AreaClass, Xpx(1.30f), Ypx(8.40f), "地區");
+            // ============================================
+            // 版面重新改成：從第一張貼紙的左上角附近開始
+            //
+            // 因為你是長邊進紙，所以一張 label 的 page 高度應為 37mm。
+            // 這裡的 y 座標全部都壓回單張貼紙範圍內。
+            //
+            // 保留欄位：
+            // 1. 地址
+            // 2. 公司名稱
+            // 3. 會籍編號
+            //
+            // 移除欄位：
+            // - 地區
+            // - 負責人 / 聯絡人
+            // ============================================
 
-            // B) 地址（直排）
+            // A) 地址（直排，左上區域）
             DrawTateText_Rightward(
                 g, font16, brush,
-                d.AddressToPrint,
+                address,
                 xStartPx: Xpx(1.30f),
-                yStartPx: Ypx(9.20f),
-                stepPx: StepPxX(5.5f),
-                colShiftPx: ColShiftPxY(5.5f, 1.8f),
-                maxCharsPerCol: 18,
+                yStartPx: Ypx(0.45f),
+                stepPx: StepPxX(4.8f),
+                colShiftPx: ColShiftPxY(4.8f, 1.10f),
+                maxCharsPerCol: 22,
                 fieldName: "地址"
             );
 
-            // C) 公司名稱（直排）
+            // B) 公司名稱（直排，稍微往下）
             DrawTateText_Rightward(
                 g, font18, brush,
                 d.CName,
                 xStartPx: Xpx(1.30f),
-                yStartPx: Ypx(10.00f),
-                stepPx: StepPxX(6.0f),
-                colShiftPx: ColShiftPxY(6.0f, 1.8f),
+                yStartPx: Ypx(1.35f),
+                stepPx: StepPxX(5.8f),
+                colShiftPx: ColShiftPxY(5.8f, 1.10f),
                 maxCharsPerCol: 12,
                 fieldName: "公司名稱"
             );
 
-            // D) 會籍編號（橫排）
-            DrawTextBitmap(g, font12, brush, d.Number, Xpx(1.30f), Ypx(10.80f), "會籍編號");
-
-            // E) 負責人 / 聯絡人（直排）
-            DrawTateText_Rightward(
+            // C) 會籍編號（橫排，放下方）
+            DrawTextBitmap(
                 g, font12, brush,
-                d.ContactLine,
-                xStartPx: Xpx(1.30f),
-                yStartPx: Ypx(12.20f),
-                stepPx: StepPxX(5.0f),
-                colShiftPx: ColShiftPxY(5.0f, 1.7f),
-                maxCharsPerCol: 20,
-                fieldName: "聯絡資訊"
+                d.Number,
+                Xpx(1.30f),
+                Ypx(2.85f),
+                "會籍編號"
             );
         }
 
@@ -159,6 +166,98 @@ namespace PrinterClub.Printing
                 .ToArray();
 
             return new string(chars).Trim();
+        }
+
+        private static string NormalizeAddressForVerticalPrint(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return string.Empty;
+
+            text = SanitizeText(text);
+
+            var map = new Dictionary<char, char>
+            {
+                ['0'] = '０',
+                ['1'] = '１',
+                ['2'] = '２',
+                ['3'] = '３',
+                ['4'] = '４',
+                ['5'] = '５',
+                ['6'] = '６',
+                ['7'] = '７',
+                ['8'] = '８',
+                ['9'] = '９',
+
+                ['A'] = 'Ａ',
+                ['B'] = 'Ｂ',
+                ['C'] = 'Ｃ',
+                ['D'] = 'Ｄ',
+                ['E'] = 'Ｅ',
+                ['F'] = 'Ｆ',
+                ['G'] = 'Ｇ',
+                ['H'] = 'Ｈ',
+                ['I'] = 'Ｉ',
+                ['J'] = 'Ｊ',
+                ['K'] = 'Ｋ',
+                ['L'] = 'Ｌ',
+                ['M'] = 'Ｍ',
+                ['N'] = 'Ｎ',
+                ['O'] = 'Ｏ',
+                ['P'] = 'Ｐ',
+                ['Q'] = 'Ｑ',
+                ['R'] = 'Ｒ',
+                ['S'] = 'Ｓ',
+                ['T'] = 'Ｔ',
+                ['U'] = 'Ｕ',
+                ['V'] = 'Ｖ',
+                ['W'] = 'Ｗ',
+                ['X'] = 'Ｘ',
+                ['Y'] = 'Ｙ',
+                ['Z'] = 'Ｚ',
+
+                ['a'] = 'ａ',
+                ['b'] = 'ｂ',
+                ['c'] = 'ｃ',
+                ['d'] = 'ｄ',
+                ['e'] = 'ｅ',
+                ['f'] = 'ｆ',
+                ['g'] = 'ｇ',
+                ['h'] = 'ｈ',
+                ['i'] = 'ｉ',
+                ['j'] = 'ｊ',
+                ['k'] = 'ｋ',
+                ['l'] = 'ｌ',
+                ['m'] = 'ｍ',
+                ['n'] = 'ｎ',
+                ['o'] = 'ｏ',
+                ['p'] = 'ｐ',
+                ['q'] = 'ｑ',
+                ['r'] = 'ｒ',
+                ['s'] = 'ｓ',
+                ['t'] = 'ｔ',
+                ['u'] = 'ｕ',
+                ['v'] = 'ｖ',
+                ['w'] = 'ｗ',
+                ['x'] = 'ｘ',
+                ['y'] = 'ｙ',
+                ['z'] = 'ｚ',
+
+                ['-'] = '－',
+                ['('] = '（',
+                [')'] = '）',
+                ['/'] = '／',
+                ['\\'] = '＼',
+                ['.'] = '．',
+                [','] = '，',
+                [':'] = '：',
+                [';'] = '；',
+                ['#'] = '＃',
+                ['&'] = '＆',
+                [' '] = '　'
+            };
+
+            var result = text.Select(ch => map.TryGetValue(ch, out var full) ? full : ch).ToArray();
+            return new string(result);
         }
 
         private void DrawTextBitmap(Graphics g, Font font, Brush brush, string text, float xPx, float yPx, string fieldName)
@@ -227,6 +326,7 @@ namespace PrinterClub.Printing
         private Bitmap GetTextBitmapTight(string text, Font font, Brush brush, float dpiX, float dpiY, string fieldName)
         {
             string key = $"{text}|{font.Name}|{font.SizeInPoints}|{font.Style}|{dpiX:0.##}|{dpiY:0.##}|text-tight";
+
             if (_glyphCache.TryGetValue(key, out var cached))
                 return (Bitmap)cached.Clone();
 
@@ -273,6 +373,7 @@ namespace PrinterClub.Printing
                 return CreateEmptyBitmap(dpiX, dpiY);
 
             string key = $"{s}|{font.Name}|{font.SizeInPoints}|{font.Style}|{dpiX:0.##}|{dpiY:0.##}|rot:{GLYPH_ROTATE}";
+
             if (_glyphCache.TryGetValue(key, out var cached))
                 return (Bitmap)cached.Clone();
 
@@ -292,11 +393,18 @@ namespace PrinterClub.Printing
                     FormatFlags = StringFormatFlags.NoClip | StringFormatFlags.NoWrap
                 };
 
-                var center = new PointF(canvas / 2f, canvas / 2f);
-                var size = gg.MeasureString(s, font, canvas, sf);
+                SizeF size;
+                try
+                {
+                    size = gg.MeasureString(s, font, canvas, sf);
+                }
+                catch
+                {
+                    size = new SizeF(font.Size * 2f, font.Size * 2f);
+                }
 
-                float x = center.X - size.Width / 2f;
-                float y = center.Y - size.Height / 2f;
+                float x = (canvas - size.Width) / 2f;
+                float y = (canvas - size.Height) / 2f;
 
                 try
                 {

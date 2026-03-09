@@ -12,6 +12,18 @@ namespace PrinterClub.Printing
         private int _index;
         private bool _disposed;
 
+        // 依你目前量測：
+        // 貼紙本體：11.9cm x 3.7cm
+        // 左右洞洞紙：各 1cm
+        //
+        // 因為你是「長邊進印表機」，
+        // 所以每張 label 的送紙節距應該是短邊 37mm。
+        //
+        // 整張紙寬度 = 119 + 10 + 10 = 139 mm
+        // 每張紙高度 = 37 mm
+        private const int PAPER_WIDTH_MM = 139;
+        private const int PAPER_HEIGHT_MM = 37;
+
         public CompanyLabelBatchPrintDocument(IReadOnlyList<CompanyLabelPrintData> items, PrintOptions options)
         {
             _items = items ?? throw new ArgumentNullException(nameof(items));
@@ -29,14 +41,15 @@ namespace PrinterClub.Printing
                     throw new InvalidOperationException($"印表機不存在或不可用：{options.PrinterName}");
             }
 
+            OriginAtMargins = false;
             DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
 
-            // 這裡先給一個可用的預設值：
-            // 14cm x 24cm（你之後如果量到舊標籤實際尺寸，再改 options 即可）
+            // 一頁就是一張貼紙的節距，不是整串紙的長度
             DefaultPageSettings.PaperSize =
-                options.CreatePaperSize("CompanyLabel", options.PaperWidthMm, options.PaperHeightMm);
+                options.CreatePaperSize("CompanyLabel", PAPER_WIDTH_MM, PAPER_HEIGHT_MM);
 
-            DefaultPageSettings.Landscape = options.Landscape;
+            // 你現在文字方向已經正確，所以先不要翻 Landscape
+            DefaultPageSettings.Landscape = false;
         }
 
         protected override void OnPrintPage(PrintPageEventArgs e)
@@ -49,6 +62,13 @@ namespace PrinterClub.Printing
 
             try
             {
+                // 補償印表機硬邊界，避免起印點被往內推
+                // HardMargin 單位為 1/100 inch
+                float hardMarginXpx = e.PageSettings.HardMarginX * e.Graphics.DpiX / 100f;
+                float hardMarginYpx = e.PageSettings.HardMarginY * e.Graphics.DpiY / 100f;
+
+                e.Graphics.TranslateTransform(-hardMarginXpx, -hardMarginYpx);
+
                 _renderer.Render(e.Graphics, _items[_index]);
             }
             catch (Exception ex)
