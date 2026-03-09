@@ -25,41 +25,50 @@ internal sealed class BidProveRenderer
         using var font = CreateFontSafe(_opt.FontName, _opt.FontSizePt);
         var brush = Brushes.Black;
 
-        float X(float cm) => cm * 10f + _opt.OffsetXmm;
-        float Y(float cm) => cm * 10f + _opt.OffsetYmm;
+        // 公司名稱1
+        DrawCol(g, font, brush, d.CName, 179.5f, 32f, "公司名稱1");
 
-        DrawCol(g, font, brush, d.CName, X(18.2f), Y(3.9f), "公司名稱1");
-        DrawCol(g, font, brush, d.CName, X(14.3f), Y(8.3f), "公司名稱2");
+        // 公司名稱2
+        DrawCol(g, font, brush, d.CName, 139.5f, 75f, "公司名稱2");
 
-        DrawCol(g, font, brush, d.Number, X(19.3f), Y(23.0f), "會籍編號");
+        // 會籍編號
+        DrawCol(g, font, brush, d.Number, 190.5f, 224f, "會籍編號");
 
+        // 比價有效日期
         var (vy, vm, vd) = DateParts.TryParseRocOrIso(d.ProveValidDate);
-        DrawCol(g, font, brush, ChineseNumerals.Translate(vy), X(15.8f), Y(9.3f), "比價有效年");
-        DrawCol(g, font, brush, ChineseNumerals.Translate(vm), X(15.8f), Y(12.6f), "比價有效月");
-        DrawCol(g, font, brush, ChineseNumerals.Translate(vd), X(15.8f), Y(15.5f), "比價有效日");
+        DrawCol(g, font, brush, ChineseNumerals.Translate(vy), 155.5f, 95f, "比價有效年");
+        DrawCol(g, font, brush, ChineseNumerals.Translate(vm), 155.5f, 128f, "比價有效月");
+        DrawCol(g, font, brush, ChineseNumerals.Translate(vd), 155.5f, 157f, "比價有效日");
 
+        // 入會日期
         var (jy, jm, jd) = DateParts.TryParseRocOrIso(d.JoinOrCDate);
-        DrawCol(g, font, brush, ChineseNumerals.Translate(jy), X(13.5f), Y(7.8f), "入會年");
-        DrawCol(g, font, brush, ChineseNumerals.Translate(jm), X(13.5f), Y(10.2f), "入會月");
-        DrawCol(g, font, brush, ChineseNumerals.Translate(jd), X(13.5f), Y(12.4f), "入會日");
+        DrawCol(g, font, brush, ChineseNumerals.Translate(jy), 131.5f, 76f, "入會年");
+        DrawCol(g, font, brush, ChineseNumerals.Translate(jm), 131.5f, 105f, "入會月");
+        DrawCol(g, font, brush, ChineseNumerals.Translate(jd), 131.5f, 127f, "入會日");
 
-        DrawCol(g, font, brush, d.FAddress, X(12.8f), Y(7.0f), "工廠地址");
+        // 工廠地址
+        DrawCol(g, font, brush, d.FAddress, 123.5f, 60f, "工廠地址");
 
+        // 負責人
         var who = $"{d.Title} {d.Chief} {SexWord(d.Sex)}".Trim();
-        DrawCol(g, font, brush, who, X(12.0f), Y(8.3f), "負責人");
+        DrawCol(g, font, brush, who, 117.5f, 83f, "負責人");
 
-        DrawCol(g, font, brush, d.FactoryRegPrefix, X(10.0f), Y(13.0f), "工廠登記字");
-        DrawCol(g, font, brush, d.FactoryRegNo, X(10.0f), Y(15.2f), "工廠登記號");
+        // 工廠登記字 / 號
+        DrawCol(g, font, brush, d.FactoryRegPrefix, 95.5f, 133f, "工廠登記字");
+        DrawCol(g, font, brush, d.FactoryRegNo, 95.5f, 155f, "工廠登記號");
 
-        DrawCol(g, font, brush, d.Money, X(8.4f), Y(10.7f), "資本額");
+        // 資本額
+        DrawCol(g, font, brush, d.Money, 80.5f, 100f, "資本額");
 
-        DrawArea(g, font, brush, d.EquipmentText, X(7.2f), Y(3.0f), "設備欄");
+        // 設備欄
+        DrawArea(g, font, brush, d.EquipmentText, 45.5f, 30f, "設備欄");
 
+        // 列印日期
         var p = d.PrintDate;
         var rocYear = p.Year - 1911;
-        DrawCol(g, font, brush, ChineseNumerals.Translate(rocYear), X(2.0f), Y(5.6f), "列印年");
-        DrawCol(g, font, brush, ChineseNumerals.Translate(p.Month), X(2.0f), Y(9.0f), "列印月");
-        DrawCol(g, font, brush, ChineseNumerals.Translate(p.Day), X(2.0f), Y(12.0f), "列印日");
+        DrawCol(g, font, brush, ChineseNumerals.Translate(rocYear), 13.5f, 45f, "列印年");
+        DrawCol(g, font, brush, ChineseNumerals.Translate(p.Month), 13.5f, 84f, "列印月");
+        DrawCol(g, font, brush, ChineseNumerals.Translate(p.Day), 13.5f, 114f, "列印日");
     }
 
     private static Font CreateFontSafe(string preferName, float sizePt)
@@ -110,7 +119,7 @@ internal sealed class BidProveRenderer
         if (float.IsNaN(xMm) || float.IsNaN(yMm) || float.IsInfinity(xMm) || float.IsInfinity(yMm))
             throw new InvalidOperationException($"DrawCol 座標非法 field={fieldName}, x={xMm}, y={yMm}, text={text}");
 
-        var step = 5.5f;
+        const float step = 5.5f;
         float y = yMm;
 
         foreach (var ch in text)
@@ -141,7 +150,7 @@ internal sealed class BidProveRenderer
     {
         if (string.IsNullOrEmpty(text)) return;
 
-        var colShiftMm = 5.5f;
+        const float colShiftMm = 5.5f;
         var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
 
         float x = startXmm;
