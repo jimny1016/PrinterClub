@@ -54,41 +54,56 @@ namespace PrinterClub.Printing.Receipt
             float Xmm(float cm) => cm * 10f + _opt.OffsetXmm + GLOBAL_X_ADJUST_MM;
             float Ymm(float cm) => cm * 10f + _opt.OffsetYmm + GLOBAL_Y_ADJUST_MM;
 
-            float Xpx(float cm) => Xmm(cm) * mmToPxX;
-            float Ypx(float cm) => Ymm(cm) * mmToPxY;
+            float Xpx(float cm, float adjustMm = 0f) => (Xmm(cm) + adjustMm) * mmToPxX;
+            float Ypx(float cm, float adjustMm = 0f) => (Ymm(cm) + adjustMm) * mmToPxY;
 
             var rocY = d.PrintDate.Year - 1911;
             var m = d.PrintDate.Month;
             var day = d.PrintDate.Day;
 
-            DrawTextBitmap(g, font, brush, rocY.ToString(), Xpx(7.80f), Ypx(2.67f), "列印年");
-            DrawTextBitmap(g, font, brush, m.ToString(), Xpx(9.29f), Ypx(2.67f), "列印月");
-            DrawTextBitmap(g, font, brush, day.ToString(), Xpx(10.17f), Ypx(2.67f), "列印日");
-            DrawTextBitmap(g, font, brush, (d.ReceiptNo ?? "").Trim(), Xpx(10.87f), Ypx(2.67f), "收據號碼");
+            // 最上方年月日：x + 10mm
+            DrawTextBitmap(g, font, brush, rocY.ToString(), Xpx(7.80f, 12f), Ypx(2.67f), "列印年");
+            DrawTextBitmap(g, font, brush, m.ToString(), Xpx(9.29f, 12f), Ypx(2.67f), "列印月");
+            DrawTextBitmap(g, font, brush, day.ToString(), Xpx(10.17f, 12f), Ypx(2.67f), "列印日");
 
-            DrawTextBitmap(g, font, brush, d.CName, Xpx(4.74f), Ypx(3.56f), "公司名稱");
+            // 號：x + 35mm
+            DrawTextBitmap(g, font, brush, (d.ReceiptNo ?? "").Trim(), Xpx(10.87f, 41f), Ypx(2.67f), "收據號碼");
 
-            DrawTextBitmap(g, font, brush, d.Number, Xpx(4.74f), Ypx(4.45f), "會籍編號");
-            DrawTextBitmap(g, font, brush, d.AreaClass, Xpx(10.67f), Ypx(4.45f), "地區");
+            // 場名 / 公司名稱：x + 6mm
+            DrawTextBitmap(g, font, brush, d.CName, Xpx(4.74f, 6f), Ypx(3.56f), "公司名稱");
+
+            // 編號：x + 6mm
+            DrawTextBitmap(g, font, brush, d.Number, Xpx(4.74f, 6f), Ypx(4.45f), "會籍編號");
+
+            // 地區別：x + 10mm
+            DrawTextBitmap(g, font, brush, d.AreaClass, Xpx(10.67f, 10f), Ypx(4.45f), "地區");
 
             var (sy, sm) = YearMonthParts.TryParseRocOrIsoYm(d.StartYm);
             var (ey, em) = YearMonthParts.TryParseRocOrIsoYm(d.EndYm);
 
-            DrawTextBitmap(g, font, brush, sy.ToString(), Xpx(4.74f), Ypx(8.10f), "起始年");
-            DrawTextBitmap(g, font, brush, sm.ToString(), Xpx(6.22f), Ypx(8.10f), "起始月");
-            DrawTextBitmap(g, font, brush, ey.ToString(), Xpx(8.49f), Ypx(8.10f), "結束年");
-            DrawTextBitmap(g, font, brush, em.ToString(), Xpx(9.98f), Ypx(8.10f), "結束月");
-            DrawTextBitmap(g, font, brush, d.Fee.ToString(), Xpx(10.67f), Ypx(8.10f), "常年會費");
+            // 起始 / 結束年月：都 x + 10mm
+            DrawTextBitmap(g, font, brush, sy.ToString(), Xpx(4.74f, 10f), Ypx(8.10f), "起始年");
+            DrawTextBitmap(g, font, brush, sm.ToString(), Xpx(6.22f, 10f), Ypx(8.10f), "起始月");
+            DrawTextBitmap(g, font, brush, ey.ToString(), Xpx(8.49f, 10f), Ypx(8.10f), "結束年");
+            DrawTextBitmap(g, font, brush, em.ToString(), Xpx(9.98f, 10f), Ypx(8.10f), "結束月");
+
+            // 月費：x + 45mm
+            DrawTextBitmap(g, font, brush, d.Fee.ToString(), Xpx(10.67f, 45f), Ypx(8.10f), "常年會費");
 
             if (d.NewJoinFee != 0)
             {
-                DrawTextBitmap(g, font, brush, ey.ToString(), Xpx(4.74f), Ypx(8.99f), "新入會費年");
-                DrawTextBitmap(g, font, brush, d.NewJoinFee.ToString(), Xpx(10.67f), Ypx(8.99f), "新入會費");
+                // 下一行的年：x + 10mm
+                DrawTextBitmap(g, font, brush, ey.ToString(), Xpx(4.74f, 10f), Ypx(8.99f), "新入會費年");
+
+                // 新入會費：x + 45mm
+                DrawTextBitmap(g, font, brush, d.NewJoinFee.ToString(), Xpx(10.67f, 45f), Ypx(8.99f), "新入會費");
             }
 
             var total = d.Fee + d.NewJoinFee;
             var totalZh = ChineseMoneyUpper.ToUpper(total);
-            DrawTextBitmap(g, font, brush, totalZh, Xpx(5.24f), Ypx(9.78f), "中文大寫金額");
+
+            // 總計：x + 10mm
+            DrawTextBitmap(g, font, brush, totalZh, Xpx(5.24f, 10f), Ypx(9.78f), "中文大寫金額");
         }
 
         private static Font CreateFontSafe(string fontName, float sizePt)
@@ -127,6 +142,7 @@ namespace PrinterClub.Printing.Receipt
         private void DrawTextBitmap(Graphics g, Font font, Brush brush, string text, float xPx, float yPx, string fieldName)
         {
             if (string.IsNullOrWhiteSpace(text)) return;
+
             if (float.IsNaN(xPx) || float.IsNaN(yPx) || float.IsInfinity(xPx) || float.IsInfinity(yPx))
                 throw new InvalidOperationException($"座標非法 field={fieldName}, x={xPx}, y={yPx}");
 
@@ -140,6 +156,7 @@ namespace PrinterClub.Printing.Receipt
         private Bitmap GetTextBitmapTight(string text, Font font, Brush brush, float dpiX, float dpiY, string fieldName)
         {
             string key = $"{text}|{font.Name}|{font.SizeInPoints}|{font.Style}|{dpiX:0.##}|{dpiY:0.##}|tight";
+
             if (_textCache.TryGetValue(key, out var cached))
                 return (Bitmap)cached.Clone();
 
@@ -194,6 +211,7 @@ namespace PrinterClub.Printing.Receipt
         private static Bitmap CropToNonTransparent(Bitmap src)
         {
             Rectangle bounds = FindNonTransparentBounds(src);
+
             if (bounds.Width <= 0 || bounds.Height <= 0)
             {
                 var empty = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
@@ -230,6 +248,7 @@ namespace PrinterClub.Printing.Receipt
                     for (int y = 0; y < bmp.Height; y++)
                     {
                         byte* row = scan0 + y * stride;
+
                         for (int x = 0; x < bmp.Width; x++)
                         {
                             byte a = row[x * 4 + 3];
