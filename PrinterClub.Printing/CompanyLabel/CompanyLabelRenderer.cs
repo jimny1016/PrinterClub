@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Linq;
@@ -14,14 +15,13 @@ namespace PrinterClub.Printing
         private readonly Dictionary<string, Bitmap> _glyphCache = new();
         private bool _disposed;
 
-        // 你目前已驗證方向是對的，先維持
+        // 維持你目前已驗證正確的方向
         private const RotateFlipType GLYPH_ROTATE = RotateFlipType.Rotate270FlipNone;
 
-        // 目前仍維持這個方向
+        // 維持目前方向
         private const bool COLUMN_DIRECTION_UP = false;
 
         // 全域微調（mm）
-        // 若之後整塊還要再整體微調，可先動這兩個
         private const float GLOBAL_X_ADJUST_MM = 0f;
         private const float GLOBAL_Y_ADJUST_MM = 0f;
 
@@ -48,78 +48,93 @@ namespace PrinterClub.Printing
             if (_disposed)
                 throw new ObjectDisposedException(nameof(CompanyLabelRenderer));
 
-            // 不要 ResetTransform，否則會把外部 HardMargin 補償洗掉
-            g.PageUnit = GraphicsUnit.Pixel;
-            g.PageScale = 1f;
-            g.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
+            if (g == null)
+                throw new ArgumentNullException(nameof(g));
 
-            using var font18 = CreateFontSafe(_opt.FontName, 18);
-            using var font16 = CreateFontSafe(_opt.FontName, 16);
-            using var font12 = CreateFontSafe(_opt.FontName, 12);
-            var brush = Brushes.Black;
+            if (d == null)
+                throw new ArgumentNullException(nameof(d));
 
-            float mmToPxX = g.DpiX / 25.4f;
-            float mmToPxY = g.DpiY / 25.4f;
+            GraphicsState state = g.Save();
 
-            float Xmm(float cm) => cm * 10f + _opt.OffsetXmm + GLOBAL_X_ADJUST_MM;
-            float Ymm(float cm) => cm * 10f + _opt.OffsetYmm + GLOBAL_Y_ADJUST_MM;
+            try
+            {
+                // 不要 ResetTransform，保留外部 PrintPage / HardMargin 補償
+                g.PageUnit = GraphicsUnit.Pixel;
+                g.PageScale = 1f;
+                g.SmoothingMode = SmoothingMode.None;
+                g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                g.PixelOffsetMode = PixelOffsetMode.None;
+                g.CompositingQuality = CompositingQuality.HighSpeed;
+                g.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
 
-            float Xpx(float cm, float adjustMm = 0f) => (Xmm(cm) + adjustMm) * mmToPxX;
-            float Ypx(float cm, float adjustMm = 0f) => (Ymm(cm) + adjustMm) * mmToPxY;
+                using var font18 = CreateFontSafe(_opt.FontName, 18);
+                using var font16 = CreateFontSafe(_opt.FontName, 16);
+                using var font12 = CreateFontSafe(_opt.FontName, 12);
+                var brush = Brushes.Black;
 
-            float StepPxX(float stepMm) => stepMm * mmToPxX;
-            float ColShiftPxY(float stepMm, float factor = 1.15f) => (stepMm * factor) * mmToPxY;
+                float mmToPxX = g.DpiX / 25.4f;
+                float mmToPxY = g.DpiY / 25.4f;
 
-            string address = NormalizeAddressForVerticalPrint(d.AddressToPrint);
+                float XmmToPx(float mm) => (mm + _opt.OffsetXmm + GLOBAL_X_ADJUST_MM) * mmToPxX;
+                float YmmToPx(float mm) => (mm + _opt.OffsetYmm + GLOBAL_Y_ADJUST_MM) * mmToPxY;
 
-            // ============================================
-            // 版面重新改成：從第一張貼紙的左上角附近開始
-            //
-            // 因為你是長邊進紙，所以一張 label 的 page 高度應為 37mm。
-            // 這裡的 y 座標全部都壓回單張貼紙範圍內。
-            //
-            // 保留欄位：
-            // 1. 地址
-            // 2. 公司名稱
-            // 3. 會籍編號
-            //
-            // 移除欄位：
-            // - 地區
-            // - 負責人 / 聯絡人
-            // ============================================
+                float MmToPxX(float mm) => mm * mmToPxX;
+                float MmToPxY(float mm) => mm * mmToPxY;
 
-            // A) 地址（直排，左上區域）
-            DrawTateText_Rightward(
-                g, font16, brush,
-                address,
-                xStartPx: Xpx(1.30f),
-                yStartPx: Ypx(0.45f),
-                stepPx: StepPxX(4.8f),
-                colShiftPx: ColShiftPxY(4.8f, 1.10f),
-                maxCharsPerCol: 22,
-                fieldName: "地址"
-            );
+                string address = NormalizeAddressForVerticalPrint(d.AddressToPrint);
+                string companyName = SanitizeText(d.CName);
+                string number = SanitizeText(d.Number);
 
-            // B) 公司名稱（直排，稍微往下）
-            DrawTateText_Rightward(
-                g, font18, brush,
-                d.CName,
-                xStartPx: Xpx(1.30f),
-                yStartPx: Ypx(1.35f),
-                stepPx: StepPxX(5.8f),
-                colShiftPx: ColShiftPxY(5.8f, 1.10f),
-                maxCharsPerCol: 12,
-                fieldName: "公司名稱"
-            );
+                // ============================================
+                // 版面：
+                // A) 地址（直排）
+                // B) 公司名稱（直排）
+                // C) 會籍編號（橫排）
+                // ============================================
 
-            // C) 會籍編號（橫排，放下方）
-            DrawTextBitmap(
-                g, font12, brush,
-                d.Number,
-                Xpx(1.30f),
-                Ypx(2.85f),
-                "會籍編號"
-            );
+                // A) 地址（直排）
+                DrawTateText_Rightward(
+                    g: g,
+                    font: font16,
+                    brush: brush,
+                    text: address,
+                    xStartPx: XmmToPx(13.0f),
+                    yStartPx: YmmToPx(4.5f),
+                    stepPx: MmToPxX(4.8f),
+                    colShiftPx: MmToPxY(5.3f),
+                    maxCharsPerCol: 22,
+                    fieldName: "地址"
+                );
+
+                // B) 公司名稱（直排）
+                DrawTateText_Rightward(
+                    g: g,
+                    font: font18,
+                    brush: brush,
+                    text: companyName,
+                    xStartPx: XmmToPx(13.0f),
+                    yStartPx: YmmToPx(13.5f),
+                    stepPx: MmToPxX(5.8f),
+                    colShiftPx: MmToPxY(6.4f),
+                    maxCharsPerCol: 12,
+                    fieldName: "公司名稱"
+                );
+
+                // C) 會籍編號（橫排）
+                DrawTextBitmap(
+                    g: g,
+                    font: font12,
+                    brush: brush,
+                    text: number,
+                    xPx: XmmToPx(90.0f),
+                    yPx: YmmToPx(28.5f),
+                    fieldName: "會籍編號"
+                );
+            }
+            finally
+            {
+                g.Restore(state);
+            }
         }
 
         private static Font CreateFontSafe(string fontName, float sizePt)
@@ -159,7 +174,7 @@ namespace PrinterClub.Printing
 
         private static string SanitizeText(string text)
         {
-            if (string.IsNullOrEmpty(text)) return "";
+            if (string.IsNullOrEmpty(text)) return string.Empty;
 
             var chars = text
                 .Where(ch => !char.IsControl(ch) || ch == ' ')
@@ -260,13 +275,21 @@ namespace PrinterClub.Printing
             return new string(result);
         }
 
-        private void DrawTextBitmap(Graphics g, Font font, Brush brush, string text, float xPx, float yPx, string fieldName)
+        private void DrawTextBitmap(
+            Graphics g,
+            Font font,
+            Brush brush,
+            string text,
+            float xPx,
+            float yPx,
+            string fieldName)
         {
             if (string.IsNullOrWhiteSpace(text)) return;
+
             if (!IsFinite(xPx) || !IsFinite(yPx))
                 throw new InvalidOperationException($"座標非法 field={fieldName}, x={xPx}, y={yPx}");
 
-            var sanitized = SanitizeText(text);
+            string sanitized = SanitizeText(text);
             if (string.IsNullOrWhiteSpace(sanitized)) return;
 
             using var bmp = GetTextBitmapTight(sanitized, font, brush, g.DpiX, g.DpiY, fieldName);
@@ -286,18 +309,25 @@ namespace PrinterClub.Printing
             string fieldName)
         {
             if (string.IsNullOrWhiteSpace(text)) return;
+
             if (!IsFinite(xStartPx) || !IsFinite(yStartPx) || !IsFinite(stepPx) || !IsFinite(colShiftPx))
                 throw new InvalidOperationException($"直排座標非法 field={fieldName}");
 
-            var sanitized = SanitizeText(text);
+            string sanitized = SanitizeText(text);
             if (string.IsNullOrWhiteSpace(sanitized)) return;
 
-            if (maxCharsPerCol <= 0) maxCharsPerCol = int.MaxValue;
+            if (maxCharsPerCol <= 0)
+                maxCharsPerCol = int.MaxValue;
+
+            // 關鍵：
+            // 用固定 cell 來承載每一個字，再把 glyph 置中
+            int cellWidth = Math.Max(1, (int)Math.Round(stepPx));
+            int cellHeight = Math.Max(1, (int)Math.Round(colShiftPx));
 
             int col = 0;
             int row = 0;
 
-            foreach (var ch in sanitized)
+            foreach (char ch in sanitized)
             {
                 if (char.IsControl(ch))
                     continue;
@@ -308,22 +338,42 @@ namespace PrinterClub.Printing
                     row = 0;
                 }
 
-                float x = xStartPx + row * stepPx;
-                float y = COLUMN_DIRECTION_UP
+                float cellX = xStartPx + row * stepPx;
+                float cellY = COLUMN_DIRECTION_UP
                     ? yStartPx - col * colShiftPx
                     : yStartPx + col * colShiftPx;
 
-                if (IsFinite(x) && IsFinite(y))
+                if (IsFinite(cellX) && IsFinite(cellY))
                 {
-                    using var glyph = GetRotatedGlyphBitmapTight(ch.ToString(), font, brush, g.DpiX, g.DpiY, fieldName);
-                    g.DrawImageUnscaled(glyph, (int)Math.Round(x), (int)Math.Round(y));
+                    using var glyphCell = GetRotatedGlyphBitmapCenteredInCell(
+                        s: ch.ToString(),
+                        font: font,
+                        brush: brush,
+                        dpiX: g.DpiX,
+                        dpiY: g.DpiY,
+                        cellWidth: cellWidth,
+                        cellHeight: cellHeight,
+                        fieldName: fieldName
+                    );
+
+                    g.DrawImageUnscaled(
+                        glyphCell,
+                        (int)Math.Round(cellX),
+                        (int)Math.Round(cellY)
+                    );
                 }
 
                 row++;
             }
         }
 
-        private Bitmap GetTextBitmapTight(string text, Font font, Brush brush, float dpiX, float dpiY, string fieldName)
+        private Bitmap GetTextBitmapTight(
+            string text,
+            Font font,
+            Brush brush,
+            float dpiX,
+            float dpiY,
+            string fieldName)
         {
             string key = $"{text}|{font.Name}|{font.SizeInPoints}|{font.Style}|{dpiX:0.##}|{dpiY:0.##}|text-tight";
 
@@ -331,8 +381,14 @@ namespace PrinterClub.Printing
                 return (Bitmap)cached.Clone();
 
             int pad = 10;
-            int estW = Math.Max(96, (int)Math.Ceiling(text.Length * font.SizeInPoints * dpiX / 72f) + pad * 2);
-            int estH = Math.Max(64, (int)Math.Ceiling(font.SizeInPoints * dpiY / 72f) * 3 + pad * 2);
+            int estW = Math.Max(
+                96,
+                (int)Math.Ceiling(text.Length * font.SizeInPoints * dpiX / 72f) + pad * 2
+            );
+            int estH = Math.Max(
+                64,
+                (int)Math.Ceiling(font.SizeInPoints * dpiY / 72f) * 3 + pad * 2
+            );
 
             using var tmp = new Bitmap(estW, estH, PixelFormat.Format32bppArgb);
             tmp.SetResolution(dpiX, dpiY);
@@ -340,6 +396,9 @@ namespace PrinterClub.Printing
             using (var gg = Graphics.FromImage(tmp))
             {
                 gg.Clear(Color.Transparent);
+                gg.SmoothingMode = SmoothingMode.None;
+                gg.InterpolationMode = InterpolationMode.NearestNeighbor;
+                gg.PixelOffsetMode = PixelOffsetMode.None;
                 gg.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
 
                 using var sf = new StringFormat(StringFormat.GenericTypographic)
@@ -367,12 +426,65 @@ namespace PrinterClub.Printing
             return (Bitmap)store.Clone();
         }
 
-        private Bitmap GetRotatedGlyphBitmapTight(string s, Font font, Brush brush, float dpiX, float dpiY, string fieldName)
+        private Bitmap GetRotatedGlyphBitmapCenteredInCell(
+            string s,
+            Font font,
+            Brush brush,
+            float dpiX,
+            float dpiY,
+            int cellWidth,
+            int cellHeight,
+            string fieldName)
         {
             if (string.IsNullOrWhiteSpace(s))
                 return CreateEmptyBitmap(dpiX, dpiY);
 
-            string key = $"{s}|{font.Name}|{font.SizeInPoints}|{font.Style}|{dpiX:0.##}|{dpiY:0.##}|rot:{GLYPH_ROTATE}";
+            string key = $"{s}|{font.Name}|{font.SizeInPoints}|{font.Style}|{dpiX:0.##}|{dpiY:0.##}|cell:{cellWidth}x{cellHeight}|rot:{GLYPH_ROTATE}";
+
+            if (_glyphCache.TryGetValue(key, out var cached))
+                return (Bitmap)cached.Clone();
+
+            using var tightGlyph = GetRotatedGlyphBitmapTight(s, font, brush, dpiX, dpiY, fieldName);
+
+            var cell = new Bitmap(
+                Math.Max(1, cellWidth),
+                Math.Max(1, cellHeight),
+                PixelFormat.Format32bppArgb
+            );
+            cell.SetResolution(dpiX, dpiY);
+
+            using (var gg = Graphics.FromImage(cell))
+            {
+                gg.Clear(Color.Transparent);
+                gg.SmoothingMode = SmoothingMode.None;
+                gg.InterpolationMode = InterpolationMode.NearestNeighbor;
+                gg.PixelOffsetMode = PixelOffsetMode.None;
+                gg.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
+
+                int x = (cell.Width - tightGlyph.Width) / 2;
+                int y = (cell.Height - tightGlyph.Height) / 2;
+
+                gg.DrawImageUnscaled(tightGlyph, x, y);
+            }
+
+            var store = (Bitmap)cell.Clone();
+            _glyphCache[key] = store;
+
+            return (Bitmap)store.Clone();
+        }
+
+        private Bitmap GetRotatedGlyphBitmapTight(
+            string s,
+            Font font,
+            Brush brush,
+            float dpiX,
+            float dpiY,
+            string fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(s))
+                return CreateEmptyBitmap(dpiX, dpiY);
+
+            string key = $"{s}|{font.Name}|{font.SizeInPoints}|{font.Style}|{dpiX:0.##}|{dpiY:0.##}|rot-tight:{GLYPH_ROTATE}";
 
             if (_glyphCache.TryGetValue(key, out var cached))
                 return (Bitmap)cached.Clone();
@@ -386,6 +498,9 @@ namespace PrinterClub.Printing
             using (var gg = Graphics.FromImage(tmp))
             {
                 gg.Clear(Color.Transparent);
+                gg.SmoothingMode = SmoothingMode.None;
+                gg.InterpolationMode = InterpolationMode.NearestNeighbor;
+                gg.PixelOffsetMode = PixelOffsetMode.None;
                 gg.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
 
                 using var sf = new StringFormat(StringFormat.GenericTypographic)
@@ -442,6 +557,7 @@ namespace PrinterClub.Printing
         private static Bitmap CropToNonTransparent(Bitmap src)
         {
             Rectangle bounds = FindNonTransparentBounds(src);
+
             if (bounds.Width <= 0 || bounds.Height <= 0)
             {
                 var empty = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
@@ -473,11 +589,15 @@ namespace PrinterClub.Printing
                     byte* scan0 = (byte*)data.Scan0;
                     int stride = data.Stride;
 
-                    int minX = bmp.Width, minY = bmp.Height, maxX = -1, maxY = -1;
+                    int minX = bmp.Width;
+                    int minY = bmp.Height;
+                    int maxX = -1;
+                    int maxY = -1;
 
                     for (int y = 0; y < bmp.Height; y++)
                     {
                         byte* row = scan0 + y * stride;
+
                         for (int x = 0; x < bmp.Width; x++)
                         {
                             byte a = row[x * 4 + 3];
