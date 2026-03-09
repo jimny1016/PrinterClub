@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.Linq;
+using System.Text;
 
 namespace PrinterClub.Printing.MemberCert;
 
@@ -92,13 +94,13 @@ internal sealed class MemberCertRenderer : IDisposable
             StepPxX(6f), ColShiftPxY(6f, 2f), int.MaxValue
         );
 
-        // 資本
+        // 資本（轉國語大寫）
         DrawTateText_Rightward(
-            g, font16, brush, d.Money,
-            MmToPxX(107f),
-            MmToPxY(172.5f),
-            StepPxX(6f), ColShiftPxY(6f, 2f), 10
-        );
+             g, font16, brush, ToChineseMoneyUpper(d.Money),
+             MmToPxX(107f),
+             MmToPxY(169.5f),
+             StepPxX(6f), ColShiftPxY(6f, 2f), 10
+         );
 
         // 現在日期
         var p = d.PrintDate;
@@ -337,5 +339,103 @@ internal sealed class MemberCertRenderer : IDisposable
         {
             bmp.UnlockBits(data);
         }
+    }
+
+    private static string ToChineseMoneyUpper(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+
+        var digits = new string(raw.Where(char.IsDigit).ToArray());
+        if (string.IsNullOrEmpty(digits))
+            return raw;
+
+        digits = digits.TrimStart('0');
+        if (digits.Length == 0)
+            return "零元整";
+
+        return $"{IntegerToChineseUpper(digits)}元整";
+    }
+
+    private static string IntegerToChineseUpper(string digits)
+    {
+        string[] numMap = { "零", "壹", "貳", "參", "肆", "伍", "陸", "柒", "捌", "玖" };
+        string[] groupUnits = { "", "萬", "億", "兆", "京" };
+
+        var groups = SplitIntoGroupsOfFour(digits);
+        var sb = new StringBuilder();
+        bool pendingZero = false;
+
+        for (int i = 0; i < groups.Count; i++)
+        {
+            int groupValue = int.Parse(groups[i]);
+            int unitIndex = groups.Count - 1 - i;
+
+            if (groupValue == 0)
+            {
+                if (sb.Length > 0)
+                    pendingZero = true;
+                continue;
+            }
+
+            if (sb.Length > 0 && (pendingZero || groupValue < 1000))
+            {
+                if (!sb.ToString().EndsWith("零", StringComparison.Ordinal))
+                    sb.Append("零");
+            }
+
+            sb.Append(ConvertFourDigitsToChineseUpper(groupValue, numMap));
+
+            if (unitIndex > 0)
+                sb.Append(groupUnits[unitIndex]);
+
+            pendingZero = false;
+        }
+
+        return sb.Length == 0 ? "零" : sb.ToString();
+    }
+
+    private static List<string> SplitIntoGroupsOfFour(string digits)
+    {
+        var result = new List<string>();
+        for (int end = digits.Length; end > 0; end -= 4)
+        {
+            int start = Math.Max(0, end - 4);
+            result.Insert(0, digits[start..end]);
+        }
+        return result;
+    }
+
+    private static string ConvertFourDigitsToChineseUpper(int value, string[] numMap)
+    {
+        if (value == 0) return "零";
+
+        string[] smallUnits = { "仟", "佰", "拾", "" };
+        int[] divisors = { 1000, 100, 10, 1 };
+
+        var sb = new StringBuilder();
+        bool pendingZero = false;
+
+        for (int i = 0; i < divisors.Length; i++)
+        {
+            int digit = (value / divisors[i]) % 10;
+            if (digit == 0)
+            {
+                if (sb.Length > 0)
+                    pendingZero = true;
+                continue;
+            }
+
+            if (pendingZero)
+            {
+                sb.Append("零");
+                pendingZero = false;
+            }
+
+            sb.Append(numMap[digit]);
+            sb.Append(smallUnits[i]);
+        }
+
+        return sb.ToString();
     }
 }
