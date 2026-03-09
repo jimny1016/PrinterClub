@@ -61,93 +61,93 @@ internal sealed class MemberCertRenderer : IDisposable
         float StepPxX(float stepMm) => stepMm * mmToPxX;
         float ColShiftPxY(float stepMm, float factor = 2f) => (stepMm * factor) * mmToPxY;
 
-        // 號
+        // 號  x:-4  y:-4
         DrawTateText_Rightward(
             g, font10Number, brush, d.Number,
-            MmToPxX(142f),
-            MmToPxY(30.5f),
+            MmToPxX(138f),
+            MmToPxY(26.5f),
             StepPxX(4.6f), ColShiftPxY(4.6f, 2f), int.MaxValue
         );
 
-        // 公司名稱
+        // 公司名稱  x:-8  y:-5
         DrawTateText_Rightward(
             g, font18, brush, d.CName,
-            MmToPxX(33f),
-            MmToPxY(68.5f),
+            MmToPxX(25f),
+            MmToPxY(63.5f),
             StepPxX(6f), ColShiftPxY(6f, 2f), 12
         );
 
-        // 負責人姓名
+        // 負責人姓名  x:-7  y:-4
         var who = $"{d.Chief}{SexWord(d.Sex)}";
         DrawTateText_Rightward(
             g, font18, brush, who,
-            MmToPxX(83f),
-            MmToPxY(119.5f),
+            MmToPxX(76f),
+            MmToPxY(115.5f),
             StepPxX(6f), ColShiftPxY(6f, 2f), int.MaxValue
         );
 
-        // 地址
+        // 地址  y:-4
         DrawTateText_Rightward(
             g, font16, brush, NormalizeAddressForVertical(d.FAddress),
             MmToPxX(76f),
-            MmToPxY(145.5f),
+            MmToPxY(141.5f),
             StepPxX(6f), ColShiftPxY(6f, 2f), int.MaxValue
         );
 
-        // 資本（轉國語大寫）
+        // 資本（轉國語大寫） y:-4
         DrawTateText_Rightward(
             g, font16, brush, ToChineseMoneyUpper(d.Money),
             MmToPxX(107f),
-            MmToPxY(169.5f),
+            MmToPxY(165.5f),
             StepPxX(6f), ColShiftPxY(6f, 2f), 10
         );
 
-        // 現在日期
+        // 現在日期  x:-1.5  y:-6
         var p = d.PrintDate;
         var roc = p.Year - 1911;
 
         DrawTateText_Rightward(
             g, font18, brush, ChineseNumerals.Translate(roc),
-            MmToPxX(67f),
-            MmToPxY(245.5f),
+            MmToPxX(65.5f),
+            MmToPxY(239.5f),
             StepPxX(6f), ColShiftPxY(6f, 2f), int.MaxValue
         );
 
         DrawTateText_Rightward(
             g, font18, brush, ChineseNumerals.Translate(p.Month),
-            MmToPxX(117f),
-            MmToPxY(245.5f),
+            MmToPxX(115.5f),
+            MmToPxY(239.5f),
             StepPxX(6f), ColShiftPxY(6f, 2f), int.MaxValue
         );
 
         DrawTateText_Rightward(
             g, font18, brush, ChineseNumerals.Translate(p.Day),
-            MmToPxX(153f),
-            MmToPxY(245.5f),
+            MmToPxX(151.5f),
+            MmToPxY(239.5f),
             StepPxX(6f), ColShiftPxY(6f, 2f), int.MaxValue
         );
 
-        // 有效期間
+        // 有效期間  x:-1.5  y:-5
         var (vy, vm, vd) = DateParts.TryParseRocOrIso(d.CertValidDate);
 
         DrawTateText_Rightward(
             g, font12, brush, vy.ToString(),
-            MmToPxX(126f),
-            MmToPxY(258.5f),
+            MmToPxX(124.5f),
+            MmToPxY(253.5f),
             StepPxX(4.8f), ColShiftPxY(4.8f, 2f), int.MaxValue
         );
 
         DrawTateText_Rightward(
             g, font12, brush, vm.ToString(),
-            MmToPxX(144f),
-            MmToPxY(258.5f),
+            MmToPxX(142.5f),
+            MmToPxY(253.5f),
             StepPxX(4.8f), ColShiftPxY(4.8f, 2f), int.MaxValue
         );
 
         DrawTateText_Rightward(
             g, font12, brush, vd.ToString(),
-            MmToPxX(158f),
-            MmToPxY(258.5f),
+            MmToPxX(156.5f),
+            MmToPxY(253.5f),
             StepPxX(4.8f), ColShiftPxY(4.8f, 2f), int.MaxValue
         );
     }
@@ -247,8 +247,6 @@ internal sealed class MemberCertRenderer : IDisposable
             };
 
             var rect = new RectangleF(0, 0, cellSize, cellSize);
-
-            // 稍微往上修一點，讓視覺中心更接近直排表單
             rect.Y -= cellSize * 0.04f;
 
             gg.DrawString(s, font, brush, rect, sf);
