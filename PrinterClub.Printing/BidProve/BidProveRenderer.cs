@@ -49,7 +49,7 @@ internal sealed class BidProveRenderer
         DrawCol(g, font, brush, ChineseNumerals.Translate(jd), 131.5f, 127f, "入會日");
 
         // 工廠地址
-        DrawCol(g, font, brush, d.FAddress, 123.5f, 60f, "工廠地址");
+        DrawCol(g, font, brush, NormalizeAddressForVertical(d.FAddress), 123.5f, 60f, "工廠地址");
 
         // 負責人
         var who = $"{d.Title} {d.Chief} {SexWord(d.Sex)}".Trim();
@@ -296,6 +296,36 @@ internal sealed class BidProveRenderer
 
             sb.Append(numMap[digit]);
             sb.Append(smallUnits[i]);
+        }
+
+        return sb.ToString();
+    }
+
+    private static string NormalizeAddressForVertical(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return string.Empty;
+
+        var sb = new StringBuilder(s.Length);
+
+        foreach (var ch in s)
+        {
+            if (ch >= '0' && ch <= '9')
+            {
+                sb.Append((char)('０' + (ch - '0')));
+                continue;
+            }
+
+            sb.Append(ch switch
+            {
+                '-' => '－',
+                '(' => '（',
+                ')' => '）',
+                ',' => '，',
+                '.' => '．',
+                ':' => '：',
+                ';' => '；',
+                _ => ch
+            });
         }
 
         return sb.ToString();

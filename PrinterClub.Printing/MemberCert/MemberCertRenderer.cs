@@ -88,7 +88,7 @@ internal sealed class MemberCertRenderer : IDisposable
 
         // 地址
         DrawTateText_Rightward(
-            g, font16, brush, d.FAddress,
+            g, font16, brush, NormalizeAddressForVertical(d.FAddress),
             MmToPxX(76f),
             MmToPxY(145.5f),
             StepPxX(6f), ColShiftPxY(6f, 2f), int.MaxValue
@@ -96,11 +96,11 @@ internal sealed class MemberCertRenderer : IDisposable
 
         // 資本（轉國語大寫）
         DrawTateText_Rightward(
-             g, font16, brush, ToChineseMoneyUpper(d.Money),
-             MmToPxX(107f),
-             MmToPxY(169.5f),
-             StepPxX(6f), ColShiftPxY(6f, 2f), 10
-         );
+            g, font16, brush, ToChineseMoneyUpper(d.Money),
+            MmToPxX(107f),
+            MmToPxY(169.5f),
+            StepPxX(6f), ColShiftPxY(6f, 2f), 10
+        );
 
         // 現在日期
         var p = d.PrintDate;
@@ -130,7 +130,6 @@ internal sealed class MemberCertRenderer : IDisposable
         // 有效期間
         var (vy, vm, vd) = DateParts.TryParseRocOrIso(d.CertValidDate);
 
-        // 年 x:-1
         DrawTateText_Rightward(
             g, font12, brush, vy.ToString(),
             MmToPxX(126f),
@@ -138,7 +137,6 @@ internal sealed class MemberCertRenderer : IDisposable
             StepPxX(4.8f), ColShiftPxY(4.8f, 2f), int.MaxValue
         );
 
-        // 月 x:+1
         DrawTateText_Rightward(
             g, font12, brush, vm.ToString(),
             MmToPxX(144f),
@@ -146,7 +144,6 @@ internal sealed class MemberCertRenderer : IDisposable
             StepPxX(4.8f), ColShiftPxY(4.8f, 2f), int.MaxValue
         );
 
-        // 日 x:+1
         DrawTateText_Rightward(
             g, font12, brush, vd.ToString(),
             MmToPxX(158f),
@@ -215,7 +212,7 @@ internal sealed class MemberCertRenderer : IDisposable
 
             if (IsFinite(x) && IsFinite(y))
             {
-                using var glyph = GetRotatedGlyphBitmapTight(ch.ToString(), font, brush, g.DpiX, g.DpiY);
+                using var glyph = GetRotatedGlyphBitmapCell(ch.ToString(), font, brush, g.DpiX, g.DpiY);
                 g.DrawImageUnscaled(glyph, (int)Math.Round(x), (int)Math.Round(y));
             }
 
@@ -223,19 +220,18 @@ internal sealed class MemberCertRenderer : IDisposable
         }
     }
 
-    private Bitmap GetRotatedGlyphBitmapTight(string s, Font font, Brush brush, float dpiX, float dpiY)
+    private Bitmap GetRotatedGlyphBitmapCell(string s, Font font, Brush brush, float dpiX, float dpiY)
     {
         if (string.IsNullOrWhiteSpace(s))
             return CreateEmptyBitmap(dpiX, dpiY);
 
-        string key = $"{s}|{font.Name}|{font.SizeInPoints}|{font.Style}|{dpiX:0.##}|{dpiY:0.##}|rot:{GLYPH_ROTATE}|tight";
+        int cellSize = GetGlyphCellSize(font, dpiX, dpiY);
+
+        string key = $"{s}|{font.Name}|{font.SizeInPoints}|{font.Style}|{dpiX:0.##}|{dpiY:0.##}|rot:{GLYPH_ROTATE}|cell:{cellSize}";
         if (_glyphCache.TryGetValue(key, out var cached))
             return (Bitmap)cached.Clone();
 
-        int canvas = (int)Math.Ceiling(font.SizeInPoints * Math.Max(dpiX, dpiY) / 72f) * 4;
-        canvas = Math.Max(canvas, 96);
-
-        using var tmp = new Bitmap(canvas, canvas, PixelFormat.Format32bppArgb);
+        using var tmp = new Bitmap(cellSize, cellSize, PixelFormat.Format32bppArgb);
         tmp.SetResolution(dpiX, dpiY);
 
         using (var gg = Graphics.FromImage(tmp))
@@ -245,29 +241,36 @@ internal sealed class MemberCertRenderer : IDisposable
 
             using var sf = new StringFormat(StringFormat.GenericTypographic)
             {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Center,
                 FormatFlags = StringFormatFlags.NoClip | StringFormatFlags.NoWrap
             };
 
-            var center = new PointF(canvas / 2f, canvas / 2f);
-            var size = gg.MeasureString(s, font, canvas, sf);
+            var rect = new RectangleF(0, 0, cellSize, cellSize);
 
-            float x = center.X - size.Width / 2f;
-            float y = center.Y - size.Height / 2f;
+            // 稍微往上修一點，讓視覺中心更接近直排表單
+            rect.Y -= cellSize * 0.04f;
 
-            gg.DrawString(s, font, brush, x, y, sf);
+            gg.DrawString(s, font, brush, rect, sf);
         }
 
-        using var tight = CropToNonTransparent(tmp);
-        var rotated = (Bitmap)tight.Clone();
+        var rotated = (Bitmap)tmp.Clone();
         rotated.RotateFlip(GLYPH_ROTATE);
 
-        using var tight2 = CropToNonTransparent(rotated);
+        var store = (Bitmap)rotated.Clone();
         rotated.Dispose();
 
-        var store = (Bitmap)tight2.Clone();
         _glyphCache[key] = store;
-
         return (Bitmap)store.Clone();
+    }
+
+    private static int GetGlyphCellSize(Font font, float dpiX, float dpiY)
+    {
+        float pxByPt = font.SizeInPoints * Math.Max(dpiX, dpiY) / 72f;
+        float pxByHeight = font.GetHeight(Math.Max(dpiX, dpiY));
+        int cell = (int)Math.Ceiling(Math.Max(pxByPt, pxByHeight) * 2.2f);
+
+        return Math.Max(cell, 64);
     }
 
     private static Bitmap CreateEmptyBitmap(float dpiX, float dpiY)
@@ -275,70 +278,6 @@ internal sealed class MemberCertRenderer : IDisposable
         var bmp = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
         bmp.SetResolution(dpiX, dpiY);
         return bmp;
-    }
-
-    private static Bitmap CropToNonTransparent(Bitmap src)
-    {
-        Rectangle bounds = FindNonTransparentBounds(src);
-        if (bounds.Width <= 0 || bounds.Height <= 0)
-        {
-            var empty = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
-            empty.SetResolution(src.HorizontalResolution, src.VerticalResolution);
-            return empty;
-        }
-
-        var dst = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
-        dst.SetResolution(src.HorizontalResolution, src.VerticalResolution);
-
-        using (var g = Graphics.FromImage(dst))
-        {
-            g.Clear(Color.Transparent);
-            g.DrawImage(src, new Rectangle(0, 0, dst.Width, dst.Height), bounds, GraphicsUnit.Pixel);
-        }
-
-        return dst;
-    }
-
-    private static Rectangle FindNonTransparentBounds(Bitmap bmp)
-    {
-        var rect = new Rectangle(0, 0, bmp.Width, bmp.Height);
-        var data = bmp.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-
-        try
-        {
-            unsafe
-            {
-                byte* scan0 = (byte*)data.Scan0;
-                int stride = data.Stride;
-
-                int minX = bmp.Width, minY = bmp.Height, maxX = -1, maxY = -1;
-
-                for (int y = 0; y < bmp.Height; y++)
-                {
-                    byte* row = scan0 + y * stride;
-                    for (int x = 0; x < bmp.Width; x++)
-                    {
-                        byte a = row[x * 4 + 3];
-                        if (a != 0)
-                        {
-                            if (x < minX) minX = x;
-                            if (y < minY) minY = y;
-                            if (x > maxX) maxX = x;
-                            if (y > maxY) maxY = y;
-                        }
-                    }
-                }
-
-                if (maxX < minX || maxY < minY)
-                    return Rectangle.Empty;
-
-                return Rectangle.FromLTRB(minX, minY, maxX + 1, maxY + 1);
-            }
-        }
-        finally
-        {
-            bmp.UnlockBits(data);
-        }
     }
 
     private static string ToChineseMoneyUpper(string raw)
@@ -434,6 +373,36 @@ internal sealed class MemberCertRenderer : IDisposable
 
             sb.Append(numMap[digit]);
             sb.Append(smallUnits[i]);
+        }
+
+        return sb.ToString();
+    }
+
+    private static string NormalizeAddressForVertical(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return string.Empty;
+
+        var sb = new StringBuilder(s.Length);
+
+        foreach (var ch in s)
+        {
+            if (ch >= '0' && ch <= '9')
+            {
+                sb.Append((char)('０' + (ch - '0')));
+                continue;
+            }
+
+            sb.Append(ch switch
+            {
+                '-' => '－',
+                '(' => '（',
+                ')' => '）',
+                ',' => '，',
+                '.' => '．',
+                ':' => '：',
+                ';' => '；',
+                _ => ch
+            });
         }
 
         return sb.ToString();
