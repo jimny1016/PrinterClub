@@ -63,7 +63,7 @@ internal sealed class BidProveRenderer
         DrawCol(g, font, brush, ToChineseMoneyUpper(d.Money), 80.5f, 100f, "資本額");
 
         // 設備欄
-        DrawArea(g, font, brush, d.EquipmentText, 45.5f, 30f, "設備欄");
+        DrawArea(g, font, brush, d.EquipmentText, 65.5f, 30f, "設備欄");
 
         // 列印日期
         var p = d.PrintDate;
